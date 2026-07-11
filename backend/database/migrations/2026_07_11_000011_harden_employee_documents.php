@@ -1,0 +1,3 @@
+<?php
+use Illuminate\Database\Migrations\Migration;use Illuminate\Database\Schema\Blueprint;use Illuminate\Support\Facades\Schema;
+return new class extends Migration{public function up():void{Schema::table('documents',function(Blueprint$t){$t->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();$t->foreignId('verified_by')->nullable()->constrained('users')->nullOnDelete();$t->timestamp('verified_at')->nullable();$t->string('storage_disk')->default('local');});}public function down():void{Schema::table('documents',function(Blueprint$t){$t->dropConstrainedForeignId('verified_by');$t->dropConstrainedForeignId('uploaded_by');$t->dropColumn(['verified_at','storage_disk']);});}};

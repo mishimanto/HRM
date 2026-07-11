@@ -1,0 +1,3 @@
+<?php
+namespace App\Console\Commands;use App\Services\LeaveAccrualService;use Carbon\Carbon;use Illuminate\Console\Command;
+class AccrueLeave extends Command{protected$signature='hrm:accrue-leave {month? : Month in YYYY-MM format}';protected$description='Accrue employee leave balances idempotently';public function handle(LeaveAccrualService$service):int{$month=$this->argument('month')?Carbon::createFromFormat('Y-m',$this->argument('month'))->startOfMonth():now()->subMonth()->startOfMonth();$result=$service->accrueMonth($month);$this->info("Processed {$result['processed']} accruals for {$result['month']}");return self::SUCCESS;}}

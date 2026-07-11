@@ -1,0 +1,2 @@
+import api from './api';
+export const selfService={overview:()=>api.get('/self-service/overview'),checkIn:()=>api.post('/attendances/my-checkin'),checkOut:()=>api.post('/attendances/my-checkout'),respondSurvey:(id,answers)=>api.post(`/surveys/${id}/responses`,{answers}),downloadPayslip:async id=>{const r=await api.get(`/payslips/${id}/pdf`,{responseType:'blob'});const url=URL.createObjectURL(r.data);const a=document.createElement('a');a.href=url;a.download=`payslip-${id}.pdf`;a.click();URL.revokeObjectURL(url);}};

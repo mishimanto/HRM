@@ -1,0 +1,2 @@
+import api from './api';
+export const compensationService={overview:()=>api.get('/payroll-engine/overview'),createRun:data=>api.post('/payroll-runs',data),calculate:(id,assessment_year)=>api.post(`/payroll-runs/${id}/calculate`,{assessment_year}),approve:id=>api.post(`/payroll-runs/${id}/approve`),markPaid:id=>api.post(`/payroll-runs/${id}/mark-paid`),createBonus:data=>api.post('/employee-bonuses',data),createFinalSettlement:data=>api.post('/final-settlements',data)};

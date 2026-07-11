@@ -1,0 +1,3 @@
+<?php
+use Illuminate\Database\Migrations\Migration;use Illuminate\Database\Schema\Blueprint;use Illuminate\Support\Facades\Schema;
+return new class extends Migration{public function up():void{Schema::create('integration_deliveries',function(Blueprint$t){$t->id();$t->foreignId('integration_webhook_id')->constrained()->cascadeOnDelete();$t->string('event');$t->uuid('delivery_id');$t->unsignedSmallInteger('response_status')->nullable();$t->unsignedTinyInteger('attempt')->default(1);$t->enum('status',['delivered','failed'])->default('failed');$t->text('error')->nullable();$t->timestamp('delivered_at')->nullable();$t->timestamps();});}public function down():void{Schema::dropIfExists('integration_deliveries');}};
