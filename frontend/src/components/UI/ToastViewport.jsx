@@ -9,27 +9,23 @@ import { TOAST_EVENT } from '../../utils/toast';
 
 const styles = {
   success: {
-    shell: 'border-teal-200 bg-white text-slate-900 shadow-[0_18px_44px_rgba(15,118,110,0.18)]',
-    icon: 'bg-teal-50 text-teal-700',
-    bar: 'from-teal-500 via-cyan-400 to-amber-300',
+    shell: 'border-emerald-400 border-b-emerald-950 bg-emerald-600 text-white shadow-[0_7px_0_rgba(6,78,59,0.80),0_24px_48px_rgba(5,150,105,0.32),inset_0_1px_0_rgba(255,255,255,0.32)]',
+    icon: 'border border-emerald-300/70 bg-emerald-800/55 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_7px_16px_rgba(6,78,59,0.38)]',
     Icon: CheckCircleIcon,
   },
   error: {
-    shell: 'border-rose-200 bg-white text-slate-900 shadow-[0_18px_44px_rgba(190,18,60,0.18)]',
-    icon: 'bg-rose-50 text-rose-700',
-    bar: 'from-rose-500 via-pink-400 to-amber-300',
+    shell: 'border-rose-400 border-b-rose-950 bg-rose-600 text-white shadow-[0_7px_0_rgba(136,19,55,0.80),0_24px_48px_rgba(225,29,72,0.32),inset_0_1px_0_rgba(255,255,255,0.32)]',
+    icon: 'border border-rose-300/70 bg-rose-800/55 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_7px_16px_rgba(136,19,55,0.38)]',
     Icon: ExclamationTriangleIcon,
   },
   warning: {
-    shell: 'border-amber-200 bg-white text-slate-900 shadow-[0_18px_44px_rgba(180,83,9,0.18)]',
-    icon: 'bg-amber-50 text-amber-700',
-    bar: 'from-amber-400 via-orange-400 to-teal-300',
+    shell: 'border-amber-300 border-b-amber-900 bg-amber-400 text-slate-950 shadow-[0_7px_0_rgba(146,64,14,0.76),0_24px_48px_rgba(245,158,11,0.30),inset_0_1px_0_rgba(255,255,255,0.38)]',
+    icon: 'border border-amber-200/80 bg-amber-600/35 text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.30),0_7px_16px_rgba(146,64,14,0.30)]',
     Icon: ExclamationTriangleIcon,
   },
   info: {
-    shell: 'border-indigo-200 bg-white text-slate-900 shadow-[0_18px_44px_rgba(67,56,202,0.16)]',
-    icon: 'bg-indigo-50 text-indigo-700',
-    bar: 'from-indigo-500 via-sky-400 to-teal-300',
+    shell: 'border-sky-400 border-b-sky-950 bg-sky-600 text-white shadow-[0_7px_0_rgba(7,89,133,0.80),0_24px_48px_rgba(2,132,199,0.30),inset_0_1px_0_rgba(255,255,255,0.32)]',
+    icon: 'border border-sky-300/70 bg-sky-800/55 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_7px_16px_rgba(7,89,133,0.36)]',
     Icon: InformationCircleIcon,
   },
 };
@@ -58,18 +54,18 @@ export default function ToastViewport() {
         const style = styles[item.type] || styles.info;
         const Icon = style.Icon;
         return (
-          <div key={item.id} className={`relative overflow-hidden rounded-[8px] border p-4 pr-11 backdrop-blur ${style.shell}`}>
-            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${style.bar}`} />
-            <div className="flex items-start gap-3">
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] ${style.icon}`}>
+          <div key={item.id} className={`toast-3d-enter relative overflow-hidden border border-b-2 p-4 pr-12 ${style.shell}`}>
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/55" />
+            <div className="relative flex items-start gap-3.5">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center ${style.icon}`}>
                 <Icon className="h-5 w-5" />
               </span>
-              <p className="pt-1 text-sm font-bold leading-5">{item.message}</p>
+              <p className="pt-1.5 text-[16px] font-bold leading-6">{item.message}</p>
             </div>
             <button
               type="button"
               onClick={() => setItems(current => current.filter(toast => toast.id !== item.id))}
-              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center border border-white/0 text-current opacity-70 transition hover:border-white/25 hover:bg-white/15 hover:opacity-100"
               aria-label="Close notification"
             >
               <XMarkIcon className="h-4 w-4" />

@@ -42,11 +42,12 @@ const navigation = [
 function SidebarContent({ user, close, settings }) {
   const roleId = Number(user?.role_id || 4);
   return <div className="flex h-full flex-col bg-[#0f2137] text-white">
-    <div className="flex min-h-[86px] shrink-0 items-center gap-3 border-b border-white/10 px-5">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden bg-teal-400 text-sm font-black text-[#0f2137] shadow-lg shadow-teal-950/30">
-        {settings.logo_url ? <img src={settings.logo_url} alt={settings.site_name} className="h-full w-full object-cover" /> : settings.short_name || 'HR'}
-      </div>
-      <div className="min-w-0"><p className="truncate text-lg font-bold leading-6">{settings.site_name || 'PeopleOS'}</p></div>
+    <div className="flex min-h-[86px] shrink-0 items-center border-b border-white/10 px-5">
+      {settings.logo_url ? (
+        <img src={settings.logo_url} alt={settings.site_name || 'Site logo'} className="max-h-14 max-w-full object-contain object-left" />
+      ) : (
+        <p className="min-w-0 truncate text-xl font-bold leading-6">{settings.site_name || 'PeopleOS'}</p>
+      )}
     </div>
     <nav className="sidebar-scroll flex-1 overflow-y-auto px-4 py-6">
       {navigation.map(group => {

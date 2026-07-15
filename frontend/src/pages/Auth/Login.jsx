@@ -49,12 +49,11 @@ export default function Login() {
 
       <div className="relative mx-auto grid min-h-screen w-full max-w-[1220px] items-center gap-10 px-5 py-10 lg:grid-cols-[1fr_500px] lg:px-8">
         <section className="hidden text-white lg:block">
-          <div className="flex items-center gap-4">
-            <BrandMark settings={settings} size="medium" />
-            <div>
-              <h1 className="text-5xl font-black leading-tight">{settings.site_name || 'PeopleOS'}</h1>
-            </div>
-          </div>
+          {settings.logo_url ? (
+            <img src={settings.logo_url} alt={settings.site_name || 'Site logo'} className="max-h-24 max-w-[360px] object-contain object-left" />
+          ) : (
+            <h1 className="text-5xl font-black leading-tight">{settings.site_name || 'PeopleOS'}</h1>
+          )}
           <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-cyan-50/75">
             {settings.tagline || 'Human resource management'} for secure workforce operations, payroll, attendance and employee services.
           </p>
@@ -70,6 +69,13 @@ export default function Login() {
             {error && <Alert message={error} />}
 
             <div>
+              <div className="mb-6 flex justify-center lg:hidden">
+                {settings.logo_url ? (
+                  <img src={settings.logo_url} alt={settings.site_name || 'Site logo'} className="max-h-16 max-w-[240px] object-contain" />
+                ) : (
+                  <p className="text-3xl font-black text-white">{settings.site_name || 'PeopleOS'}</p>
+                )}
+              </div>
               <h2 className="text-2xl text-center font-black text-slate-100">Welcome back</h2>
             </div>
 
@@ -121,15 +127,6 @@ export default function Login() {
         </section>
       </div>
     </main>
-  );
-}
-
-function BrandMark({ settings, size = 'normal' }) {
-  const dimension = size === 'large' ? 'h-20 w-20 text-xl' : 'h-14 w-14 text-sm';
-  return (
-    <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-teal-400 font-black text-[#0f2137] shadow-[0_14px_28px_rgba(20,184,166,0.28)] ${dimension}`}>
-      {settings.logo_url ? <img src={settings.logo_url} alt={settings.site_name} className="h-full w-full object-cover" /> : settings.short_name || 'HR'}
-    </div>
   );
 }
 

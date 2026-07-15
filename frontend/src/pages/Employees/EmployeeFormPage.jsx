@@ -66,7 +66,7 @@ export default function EmployeeFormPage() {
 
         if (isEdit) {
           const employeeResponse = await employeeService.getById(id);
-          const employee = employeeResponse.data?.data || employeeResponse.data;
+          const employee = employeeResponse.data?.employee || employeeResponse.data?.data || employeeResponse.data;
           setFormData({
             name: employee.user?.name || '',
             email: employee.user?.email || '',

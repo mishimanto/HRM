@@ -1,10 +1,18 @@
 const TOAST_EVENT = 'hrm:toast';
+const recentToasts = new Map();
+const DUPLICATE_WINDOW = 750;
 
 function emit(type, message) {
   if (!message) return;
+  const key = `${type}:${message}`;
+  const now = Date.now();
+
+  if (now - (recentToasts.get(key) || 0) < DUPLICATE_WINDOW) return;
+  recentToasts.set(key, now);
+
   window.dispatchEvent(new CustomEvent(TOAST_EVENT, {
     detail: {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: `${now}-${Math.random().toString(16).slice(2)}`,
       type,
       message,
     },
