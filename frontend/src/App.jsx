@@ -1,8 +1,10 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SiteSettingsProvider } from './contexts/SiteSettingsContext';
 import Layout from './components/Layout/Layout';
-const Login=lazy(()=>import('./pages/Auth/Login'));const Dashboard=lazy(()=>import('./pages/Dashboard/Dashboard'));const Employees=lazy(()=>import('./pages/Employees/Employees'));const Attendances=lazy(()=>import('./pages/Attendances/Attendances'));const MyAttendance=lazy(()=>import('./pages/Attendances/MyAttendance'));const Leaves=lazy(()=>import('./pages/Leaves/Leaves'));const Payrolls=lazy(()=>import('./pages/Payrolls/Payrolls'));const Departments=lazy(()=>import('./pages/Departments/Departments'));const Reports=lazy(()=>import('./pages/Reports/Reports'));const Calendar=lazy(()=>import('./pages/Calendar/Calendar'));const BulkAttendance=lazy(()=>import('./pages/BulkOperations/BulkAttendance'));const EditProfile=lazy(()=>import('./pages/Profile/EditProfile'));const ChangePassword=lazy(()=>import('./pages/Profile/ChangePassword'));const Tasks=lazy(()=>import('./pages/Tasks/Tasks'));const MyTasks=lazy(()=>import('./pages/Tasks/MyTasks'));const TaskDetail=lazy(()=>import('./pages/Tasks/TaskDetail'));const TalentWorkspace=lazy(()=>import('./pages/Workspaces/TalentWorkspace'));const EmployeeServicesWorkspace=lazy(()=>import('./pages/Workspaces/EmployeeServicesWorkspace'));const OperationsWorkspace=lazy(()=>import('./pages/Workspaces/OperationsWorkspace'));const CompensationWorkspace=lazy(()=>import('./pages/Workspaces/CompensationWorkspace'));const AdministrationWorkspace=lazy(()=>import('./pages/Workspaces/AdministrationWorkspace'));const SelfServicePortal=lazy(()=>import('./pages/Workspaces/SelfServicePortal'));const DocumentsWorkspace=lazy(()=>import('./pages/Workspaces/DocumentsWorkspace'));
+import ToastViewport from './components/UI/ToastViewport';
+const Login=lazy(()=>import('./pages/Auth/Login'));const Dashboard=lazy(()=>import('./pages/Dashboard/Dashboard'));const Employees=lazy(()=>import('./pages/Employees/Employees'));const EmployeeFormPage=lazy(()=>import('./pages/Employees/EmployeeFormPage'));const Attendances=lazy(()=>import('./pages/Attendances/Attendances'));const MyAttendance=lazy(()=>import('./pages/Attendances/MyAttendance'));const Leaves=lazy(()=>import('./pages/Leaves/Leaves'));const Payrolls=lazy(()=>import('./pages/Payrolls/Payrolls'));const Departments=lazy(()=>import('./pages/Departments/Departments'));const Reports=lazy(()=>import('./pages/Reports/Reports'));const Calendar=lazy(()=>import('./pages/Calendar/Calendar'));const BulkAttendance=lazy(()=>import('./pages/BulkOperations/BulkAttendance'));const EditProfile=lazy(()=>import('./pages/Profile/EditProfile'));const ChangePassword=lazy(()=>import('./pages/Profile/ChangePassword'));const Tasks=lazy(()=>import('./pages/Tasks/Tasks'));const MyTasks=lazy(()=>import('./pages/Tasks/MyTasks'));const TaskDetail=lazy(()=>import('./pages/Tasks/TaskDetail'));const TaskFormPage=lazy(()=>import('./pages/Tasks/TaskFormPage'));const TalentWorkspace=lazy(()=>import('./pages/Workspaces/TalentWorkspace'));const EmployeeServicesWorkspace=lazy(()=>import('./pages/Workspaces/EmployeeServicesWorkspace'));const OperationsWorkspace=lazy(()=>import('./pages/Workspaces/OperationsWorkspace'));const CompensationWorkspace=lazy(()=>import('./pages/Workspaces/CompensationWorkspace'));const AdministrationWorkspace=lazy(()=>import('./pages/Workspaces/AdministrationWorkspace'));const SiteSettings=lazy(()=>import('./pages/Settings/SiteSettings'));const SelfServicePortal=lazy(()=>import('./pages/Workspaces/SelfServicePortal'));const DocumentsWorkspace=lazy(()=>import('./pages/Workspaces/DocumentsWorkspace'));const NotificationsPage=lazy(()=>import('./pages/Notifications/Notifications'));
 
 // Protected Route - শুধু login check
 const ProtectedRoute = ({ children }) => {
@@ -11,7 +13,7 @@ const ProtectedRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="professional-loader" />
       </div>
     );
   }
@@ -26,7 +28,7 @@ const RoleProtectedRoute = ({ children, allowedRoles = [] }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="professional-loader" />
       </div>
     );
   }
@@ -50,7 +52,7 @@ const PublicRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="professional-loader" />
       </div>
     );
   }
@@ -61,8 +63,10 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <Router>
+      <SiteSettingsProvider>
       <AuthProvider>
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">Loading workspace...</div>}><div className="App">
+          <ToastViewport />
           <Routes>
             <Route path="/login" element={
               <PublicRoute>
@@ -82,6 +86,16 @@ function App() {
               <Route path="employees" element={
                 <RoleProtectedRoute allowedRoles={[1, 2, 3]}> {/* Admin(1) & HR(2) */}
                   <Employees />
+                </RoleProtectedRoute>
+              } />
+              <Route path="employees/create" element={
+                <RoleProtectedRoute allowedRoles={[1, 2]}> {/* Admin & HR */}
+                  <EmployeeFormPage />
+                </RoleProtectedRoute>
+              } />
+              <Route path="employees/:id/edit" element={
+                <RoleProtectedRoute allowedRoles={[1, 2]}> {/* Admin & HR */}
+                  <EmployeeFormPage />
                 </RoleProtectedRoute>
               } />
               
@@ -108,6 +122,16 @@ function App() {
                   <Tasks />
                 </RoleProtectedRoute>
               } />
+              <Route path="tasks/create" element={
+                <RoleProtectedRoute allowedRoles={[1, 2, 3]}>
+                  <TaskFormPage />
+                </RoleProtectedRoute>
+              } />
+              <Route path="tasks/:id/edit" element={
+                <RoleProtectedRoute allowedRoles={[1, 2, 3]}>
+                  <TaskFormPage />
+                </RoleProtectedRoute>
+              } />
               <Route path="talent" element={<RoleProtectedRoute allowedRoles={[1, 2, 3]}><TalentWorkspace /></RoleProtectedRoute>} />
               
               {/* Common Routes - সব role access করতে পারবে */}
@@ -118,18 +142,21 @@ function App() {
               <Route path="calendar" element={<Calendar />} />
               <Route path="profile/edit" element={<EditProfile />} />
               <Route path="profile/change-password" element={<ChangePassword />} />
+              <Route path="notifications" element={<NotificationsPage />} />
               <Route path="my-tasks" element={<MyTasks />} />
               <Route path="tasks/:id" element={<TaskDetail />} />
               <Route path="employee-services" element={<EmployeeServicesWorkspace />} />
               <Route path="operations" element={<RoleProtectedRoute allowedRoles={[1, 2, 3]}><OperationsWorkspace /></RoleProtectedRoute>} />
               <Route path="compensation" element={<RoleProtectedRoute allowedRoles={[1, 2]}><CompensationWorkspace /></RoleProtectedRoute>} />
               <Route path="administration" element={<RoleProtectedRoute allowedRoles={[1, 2]}><AdministrationWorkspace /></RoleProtectedRoute>} />
+              <Route path="site-settings" element={<RoleProtectedRoute allowedRoles={[1]}><SiteSettings /></RoleProtectedRoute>} />
               <Route path="my-hr" element={<SelfServicePortal />} />
               <Route path="documents" element={<RoleProtectedRoute allowedRoles={[1, 2]}><DocumentsWorkspace /></RoleProtectedRoute>} />
             </Route>
           </Routes>
         </div></Suspense>
       </AuthProvider>
+      </SiteSettingsProvider>
     </Router>
   );
 }

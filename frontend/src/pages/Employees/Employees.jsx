@@ -1,29 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import SharedStatCard from '../../components/UI/StatCard';
+import { useNavigate } from 'react-router-dom';
 import { employeeService } from '../../services/employeeService';
-import { PencilIcon, TrashIcon, PlusIcon, UserCircleIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
-import AddEmployeeModal from './AddEmployeeModal';
-import EditEmployeeModal from './EditEmployeeModal';
+import { toast } from '../../utils/toast';
+import { confirmDialog } from '../../utils/dialog';
+import {
+  BanknotesIcon,
+  BuildingOffice2Icon,
+  CheckCircleIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+  UserCircleIcon,
+  UserGroupIcon,
+} from '@heroicons/react/24/outline';
 
 const Employees = () => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState(null);
-  const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => {
-      setToast({ show: false, message: '', type: '' });
-    }, 3000);
-  };
-
-  useEffect(() => {
-    fetchEmployees();
+  const showToast = useCallback((message, type = 'success') => {
+    const notify = toast[type] || toast.info;
+    notify(message);
   }, []);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     try {
       const response = await employeeService.getAll();
       setEmployees(response.data.data);
@@ -33,35 +35,34 @@ const Employees = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
 
   const handleEdit = (employee) => {
-    setEditingEmployee(employee);
-    setShowEditModal(true);
+    navigate(`/employees/${employee.id}/edit`);
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
-      try {
-        await employeeService.delete(id);
-        showToast('Employee deleted successfully!', 'success');
-        fetchEmployees();
-      } catch (error) {
-        console.error('Error deleting employee:', error);
-        const errorMessage = error.response?.data?.message || 'Error deleting employee';
-        showToast(errorMessage, 'error');
-      }
+    const confirmed = await confirmDialog({
+      title: 'Delete employee?',
+      text: 'This employee record and linked user account will be removed.',
+      confirmButtonText: 'Delete employee',
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      await employeeService.delete(id);
+      showToast('Employee deleted successfully!', 'success');
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      const errorMessage = error.response?.data?.message || 'Error deleting employee';
+      showToast(errorMessage, 'error');
     }
-  };
-
-  const handleAddSuccess = () => {
-    fetchEmployees();
-    showToast('Employee created successfully!', 'success');
-  };
-
-  const handleEditSuccess = () => {
-    fetchEmployees();
-    showToast('Employee updated successfully!', 'success');
   };
 
   const formatDate = (dateString) => {
@@ -73,158 +74,164 @@ const Employees = () => {
     });
   };
 
+  const totalEmployees = employees.length;
+  const activeEmployees = employees.filter(employee => employee.user?.is_active !== false).length;
+  const assignedDepartments = new Set(employees.map(employee => employee.department?.name).filter(Boolean)).size;
+  const monthlySalary = employees.reduce((sum, employee) => sum + Number(employee.salary || 0), 0);
+
+  const getEmployeeImage = (employee) => (
+    employee.user?.profile_photo_url
+    || employee.user?.profile_image_url
+    || employee.user?.avatar_url
+    || employee.user?.photo_url
+    || employee.profile_photo_url
+    || employee.profile_image_url
+    || employee.avatar_url
+    || employee.photo_url
+    || null
+  );
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="professional-loader" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      {toast.show && (
-        <div className={`fixed top-4 right-4 z-50 transform transition-all duration-500 ease-in-out ${
-          toast.show ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-        }`}>
-          <div className={`flex items-center p-4 rounded-2xl shadow-lg border-l-4 ${
-            toast.type === 'success' 
-              ? 'bg-green-50 border-green-500 text-green-800' 
-              : 'bg-red-50 border-red-500 text-red-800'
-          } min-w-80 max-w-md`}>
-            <div className={`flex-shrink-0 ${
-              toast.type === 'success' ? 'text-green-500' : 'text-red-500'
-            }`}>
-              {toast.type === 'success' ? (
-                <CheckCircleIcon className="h-6 w-6" />
-              ) : (
-                <XCircleIcon className="h-6 w-6" />
-              )}
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">{toast.message}</p>
-            </div>
+      <section className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
+        <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-black">Employees</h1>
           </div>
-        </div>
-      )}
-
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900"></h1>
-          <p className="text-sm text-gray-600 mt-1"></p>
-        </div>
         <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5"
+          onClick={() => navigate('/employees/create')}
+            className="inline-flex h-11 items-center gap-2 bg-teal-400 px-4 text-sm font-black text-[#0f2137] shadow-[0_14px_26px_rgba(20,184,166,0.28)] transition hover:-translate-y-0.5 hover:bg-teal-300"
         >
-          <PlusIcon className="h-4 w-4 mr-2" />
+            <PlusIcon className="h-4 w-4" />
           Add Employee
         </button>
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-teal-400 via-amber-300 to-rose-400" />
+      </section>
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Total Employees" value={totalEmployees} icon={UserGroupIcon} theme="teal" />
+        <SummaryCard label="Active Records" value={activeEmployees} icon={CheckCircleIcon} theme="indigo" />
+        <SummaryCard label="Departments" value={assignedDepartments} icon={BuildingOffice2Icon} theme="amber" />
+        <SummaryCard label="Monthly Payroll" value={`BDT ${monthlySalary.toLocaleString()}`} icon={BanknotesIcon} theme="rose" />
       </div>
 
       {/* Table Container */}
-      <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+        <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">Employee Directory</h2>
+          </div>
+          <span className="w-fit border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
+            {employees.length} records
+          </span>
+        </div>
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/90">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Employee ID
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Employee Details
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Department
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Position
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Type
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Joining Date
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Salary
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-100 bg-white/80">
               {employees.map((employee) => (
-                <tr key={employee.id} className="hover:bg-gray-50 transition-all duration-200">
+                <tr key={employee.id} className="transition hover:bg-teal-50/40">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
                       {employee.user?.employee_id || '-'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center min-w-[200px]">
-                      <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
-                        <span className="text-sm font-medium text-white">
-                          {employee.user?.name?.split(' ').map(n => n[0]).join('') || 'NA'}
-                        </span>
-                      </div>
+                      <EmployeeAvatar employee={employee} src={getEmployeeImage(employee)} />
                       <div className="ml-4 min-w-0">
-                        <div className="text-sm font-semibold text-gray-900 truncate">
+                        <div className="text-sm font-bold text-slate-900 truncate">
                           {employee.user?.name || 'No Name'}
                         </div>
-                        <div className="text-sm text-gray-500 truncate">
+                        <div className="text-sm text-slate-500 truncate">
                           {employee.user?.email || 'No Email'}
                         </div>
-                        <div className="text-sm text-gray-400 truncate">
+                        <div className="text-sm text-slate-400 truncate">
                           {employee.user?.phone || 'No Phone'}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      employee.department?.name 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
+                    <span className={`inline-flex items-center border px-2.5 py-1 text-xs font-bold shadow-sm ${
+                      employee.department?.name
+                        ? 'border-teal-200 bg-teal-50 text-teal-800'
+                        : 'border-slate-200 bg-slate-100 text-slate-700'
                     }`}>
                       {employee.department?.name || 'Not Assigned'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 min-w-[150px]">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 min-w-[150px]">
                     <div className="truncate max-w-[200px]" title={employee.position?.title}>
                       {employee.position?.title || '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                      employee.employment_type === 'full-time' ? 'bg-purple-100 text-purple-800' :
-                      employee.employment_type === 'part-time' ? 'bg-yellow-100 text-yellow-800' :
-                      employee.employment_type === 'contract' ? 'bg-orange-100 text-orange-800' :
-                      'bg-gray-100 text-gray-800'
+                    <span className={`inline-flex items-center border px-2.5 py-1 text-xs font-bold capitalize shadow-sm ${
+                      employee.employment_type === 'full-time' ? 'border-indigo-200 bg-indigo-50 text-indigo-800' :
+                      employee.employment_type === 'part-time' ? 'border-amber-200 bg-amber-50 text-amber-800' :
+                      employee.employment_type === 'contract' ? 'border-orange-200 bg-orange-50 text-orange-800' :
+                      'border-slate-200 bg-slate-100 text-slate-700'
                     }`}>
                       {employee.employment_type?.replace('-', ' ') || '-'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-500">
                     {formatDate(employee.joining_date)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                    ${parseFloat(employee.salary).toLocaleString()}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-900">
+                    BDT {Number(employee.salary || 0).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleEdit(employee)}
-                        className="inline-flex items-center p-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 transition-all duration-200 hover:shadow-md transform hover:scale-105"
+                        className="inline-flex items-center border border-indigo-200 bg-indigo-50 p-2 text-indigo-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-indigo-100 hover:shadow-md"
                         title="Edit"
                       >
                         <PencilIcon className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(employee.id)}
-                        className="inline-flex items-center p-2 border border-gray-300 rounded-lg text-red-600 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 transition-all duration-200 hover:shadow-md transform hover:scale-105"
+                        className="inline-flex items-center border border-rose-200 bg-rose-50 p-2 text-rose-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-rose-100 hover:shadow-md"
                         title="Delete"
                       >
                         <TrashIcon className="h-4 w-4" />
@@ -236,7 +243,7 @@ const Employees = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Empty State */}
         {employees.length === 0 && (
           <div className="text-center py-12">
@@ -245,8 +252,8 @@ const Employees = () => {
             <p className="mt-1 text-sm text-gray-500">Get started by creating a new employee.</p>
             <div className="mt-6">
               <button
-                onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={() => navigate('/employees/create')}
+                className="inline-flex items-center bg-teal-600 px-4 py-2 text-sm font-bold text-white shadow-md hover:bg-teal-700"
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Add Employee
@@ -255,23 +262,6 @@ const Employees = () => {
           </div>
         )}
       </div>
-
-      {/* Modals */}
-      <AddEmployeeModal
-        show={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSuccess={handleAddSuccess}
-      />
-
-      <EditEmployeeModal
-        show={showEditModal}
-        employee={editingEmployee}
-        onClose={() => {
-          setShowEditModal(false);
-          setEditingEmployee(null);
-        }}
-        onSuccess={handleEditSuccess}
-      />
 
       {/* Add CSS for custom scrollbar */}
       <style>{`
@@ -294,5 +284,49 @@ const Employees = () => {
     </div>
   );
 };
+
+function SummaryCard(props) {
+  return <SharedStatCard {...props} />;
+}
+
+function EmployeeAvatar({ employee, src }) {
+  const [imageSrc, setImageSrc] = useState(src || placeholderUserImage);
+  const name = employee.user?.name || 'Employee';
+
+  useEffect(() => {
+    setImageSrc(src || placeholderUserImage);
+  }, [src]);
+
+  return (
+    <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden bg-slate-100 shadow-[0_12px_22px_rgba(15,118,110,0.18)] ring-2 ring-teal-100">
+      <img
+        src={imageSrc}
+        alt={`${name} profile`}
+        onError={() => setImageSrc(placeholderUserImage)}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
+const placeholderUserImage = `data:image/svg+xml,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ccfbf1"/>
+      <stop offset="0.55" stop-color="#e0f2fe"/>
+      <stop offset="1" stop-color="#fef3c7"/>
+    </linearGradient>
+    <linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#0f2137"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg)"/>
+  <circle cx="48" cy="35" r="18" fill="url(#fg)" opacity="0.92"/>
+  <path d="M18 82c4.8-19 17-29 30-29s25.2 10 30 29" fill="url(#fg)" opacity="0.92"/>
+  <path d="M19 82h58" stroke="#14b8a6" stroke-width="4" stroke-linecap="round" opacity="0.55"/>
+</svg>
+`)}`;
 
 export default Employees;

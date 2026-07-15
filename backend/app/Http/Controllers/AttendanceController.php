@@ -146,6 +146,13 @@ class AttendanceController extends Controller
                 ], 422);
             }
 
+            if ($attendance->check_out) {
+                return response()->json([
+                    'message' => 'Already checked out today',
+                    'attendance' => $attendance,
+                ], 422);
+            }
+
             Log::info('Found attendance:', [
                 'id' => $attendance->id,
                 'check_in' => $attendance->check_in,
@@ -172,8 +179,8 @@ class AttendanceController extends Controller
 
                     $checkIn = Carbon::parse($checkInDateTime);
                     $checkOut = Carbon::parse($checkOutDateTime);
-                    
-                    $totalMinutes = $checkOut->diffInMinutes($checkIn);
+
+                    $totalMinutes = max(0, (int) $checkIn->diffInMinutes($checkOut, false));
                     $totalHours = $totalMinutes / 60;
                     
                     Log::info('Calculation result:', [
@@ -186,8 +193,9 @@ class AttendanceController extends Controller
                     // Fallback calculation using simple time difference
                     $inTime = strtotime($attendance->check_in);
                     $outTime = strtotime($checkOutTime);
-                    $diff = $outTime - $inTime;
-                    $totalHours = abs($diff / 3600); // Convert seconds to hours
+                    $diff = max(0, $outTime - $inTime);
+                    $totalMinutes = (int) floor($diff / 60);
+                    $totalHours = $diff / 3600; // Convert seconds to hours
                     Log::info('Fallback calculation result: ' . $totalHours);
                 }
             }
@@ -196,8 +204,8 @@ class AttendanceController extends Controller
             $attendance->update([
                 'check_out' => $checkOutTime,
                 'total_hours' => round($totalHours, 2),
-                'worked_minutes' => abs((int) $totalMinutes),
-                'overtime_minutes' => max(0, abs((int) $totalMinutes) - ($attendance->shift?->overtime_after_minutes ?? 480)),
+                'worked_minutes' => (int) $totalMinutes,
+                'overtime_minutes' => max(0, (int) $totalMinutes - ($attendance->shift?->overtime_after_minutes ?? 480)),
             ]);
 
             Log::info('Attendance after update:', [
@@ -232,9 +240,12 @@ class AttendanceController extends Controller
     public function myAttendance(Request $request)
     {
         abort_unless($request->user()->employee, 404, 'Employee record not found');
-        return Attendance::with('shift')->where('employee_id', $request->user()->employee->id)
+        $query = Attendance::with('shift')->where('employee_id', $request->user()->employee->id)
+            ->when($request->date, fn($q, $date) => $q->whereDate('date', $date))
             ->when($request->month, fn($q,$month) => $q->whereYear('date', Carbon::parse($month)->year)->whereMonth('date', Carbon::parse($month)->month))
-            ->orderByDesc('date')->paginate(31);
+            ->orderByDesc('date');
+
+        return response()->json($query->limit($request->date ? 1 : 31)->get());
     }
 
     public function show(Attendance $attendance)
@@ -263,15 +274,15 @@ class AttendanceController extends Controller
                 
                 $checkIn = Carbon::parse($checkInDateTime);
                 $checkOut = Carbon::parse($checkOutDateTime);
-                $totalHours = $checkOut->diffInMinutes($checkIn) / 60;
+                $totalHours = max(0, (int) $checkIn->diffInMinutes($checkOut, false)) / 60;
                 
             } catch (\Exception $e) {
                 Log::error('Update calculation error: ' . $e->getMessage());
                 // Fallback calculation
                 $inTime = strtotime($request->check_in);
                 $outTime = strtotime($request->check_out);
-                $diff = $outTime - $inTime;
-                $totalHours = abs($diff / 3600);
+                $diff = max(0, $outTime - $inTime);
+                $totalHours = $diff / 3600;
             }
         }
 

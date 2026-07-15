@@ -291,6 +291,8 @@ public function update(Request $request, $id): JsonResponse
             $validated = $request->validate([
                 'title' => 'sometimes|required|string|max:255',
                 'description' => 'nullable|string',
+                'assigned_to' => 'sometimes|required|exists:employees,id',
+                'department_id' => 'sometimes|nullable|exists:departments,id',
                 'status' => 'sometimes|in:pending,in_progress,review,completed,cancelled',
                 'priority' => 'sometimes|required|in:low,medium,high,urgent',
                 'due_date' => 'sometimes|required|date',

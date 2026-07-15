@@ -1,17 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ToastAlert from '../../components/UI/ToastAlert';
+import SharedStatCard from '../../components/UI/StatCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { leaveService } from '../../services/leaveService';
 import { employeeService } from '../../services/employeeService';
-import { PlusIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  PaperAirplaneIcon,
+  PlusIcon,
+  UserCircleIcon,
+  UserGroupIcon,
+  XCircleIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import Swal from 'sweetalert2';
 
+const leaveTypes = [
+  { value: 'sick', label: 'Sick Leave' },
+  { value: 'casual', label: 'Casual Leave' },
+  { value: 'annual', label: 'Annual Leave' },
+  { value: 'maternity', label: 'Maternity Leave' },
+  { value: 'paternity', label: 'Paternity Leave' },
+  { value: 'emergency', label: 'Emergency Leave' },
+];
 
-const Leaves = () => {
+const statusStyles = {
+  approved: 'border-teal-200 bg-teal-50 text-teal-800',
+  pending: 'border-amber-200 bg-amber-50 text-amber-800',
+  rejected: 'border-rose-200 bg-rose-50 text-rose-800',
+};
+
+const typeStyles = {
+  sick: 'border-sky-200 bg-sky-50 text-sky-800',
+  casual: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+  annual: 'border-teal-200 bg-teal-50 text-teal-800',
+  maternity: 'border-pink-200 bg-pink-50 text-pink-800',
+  paternity: 'border-violet-200 bg-violet-50 text-violet-800',
+  emergency: 'border-amber-200 bg-amber-50 text-amber-800',
+};
+
+const normalizeRows = response => response.data?.data || response.data || [];
+
+export default function Leaves() {
   const { user } = useAuth();
   const [leaves, setLeaves] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     employee_id: '',
     leave_type: 'sick',
@@ -20,68 +62,54 @@ const Leaves = () => {
     reason: '',
   });
 
-  // Helper functions to check user role
-  const isAdmin = () => user?.role?.slug === 'admin';
-  const isHR = () => user?.role?.slug === 'hr';
-  const isEmployee = () => user?.role?.slug === 'employee';
+  const roleSlug = user?.role?.slug;
+  const canManageLeaves = roleSlug === 'admin' || roleSlug === 'hr';
+  const canApply = ['admin', 'hr', 'employee'].includes(roleSlug);
 
-  useEffect(() => {
-    fetchLeaves();
-    if (isAdmin() || isHR()) {
-      fetchEmployees();
-    }
-  }, [user]);
-
-  const fetchLeaves = async () => {
+  const fetchLeaves = useCallback(async () => {
+    setError('');
     try {
-      let response;
-      if (isAdmin() || isHR()) {
-        response = await leaveService.getAll();
-      } else {
-        response = await leaveService.getMyLeaves();
-      }
-      setLeaves(response.data.data || []);
-    } catch (error) {
-      console.error('Error fetching leaves:', error);
+      const response = canManageLeaves ? await leaveService.getAll() : await leaveService.getMyLeaves();
+      setLeaves(normalizeRows(response));
+    } catch (err) {
+      console.error('Error fetching leaves:', err);
       setLeaves([]);
+      setError(err.response?.data?.message || 'Failed to fetch leave applications');
     } finally {
       setLoading(false);
     }
-  };
+  }, [canManageLeaves]);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
+    if (!canManageLeaves) return;
     try {
       const response = await employeeService.getAll();
-      setEmployees(response.data.data || []);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      setEmployees([]);
+      setEmployees(normalizeRows(response));
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      setError(err.response?.data?.message || 'Failed to fetch employees');
     }
-  };
+  }, [canManageLeaves]);
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
+  useEffect(() => {
+    fetchLeaves();
+    fetchEmployees();
+  }, [fetchLeaves, fetchEmployees]);
 
-  // --- Check for overlapping leaves first ---
-  const isOverlap = leaves.some(l => 
-    (new Date(formData.start_date) <= new Date(l.end_date)) &&
-    (new Date(formData.end_date) >= new Date(l.start_date))
-  );
+  const summary = useMemo(() => ({
+    total: leaves.length,
+    pending: leaves.filter(leave => leave.status === 'pending').length,
+    approved: leaves.filter(leave => leave.status === 'approved').length,
+    rejected: leaves.filter(leave => leave.status === 'rejected').length,
+  }), [leaves]);
 
-  if (isOverlap) {
-    alert("You already have leave on this date range!");
-    return; // Stop submission
-  }
+  const filteredLeaves = useMemo(() => leaves.filter(leave => {
+    const statusMatches = statusFilter === 'all' || leave.status === statusFilter;
+    const typeMatches = typeFilter === 'all' || leave.leave_type === typeFilter;
+    return statusMatches && typeMatches;
+  }), [leaves, statusFilter, typeFilter]);
 
-  try {
-    // If user is employee, automatically set their employee_id
-    const submitData = { ...formData };
-    if (isEmployee() && user.employee?.id) {
-      submitData.employee_id = user.employee.id;
-    }
-
-    await leaveService.create(submitData);
-    setShowModal(false);
+  const resetForm = () => {
     setFormData({
       employee_id: '',
       leave_type: 'sick',
@@ -89,291 +117,369 @@ const Leaves = () => {
       end_date: '',
       reason: '',
     });
-    fetchLeaves();
-  } catch (error) {
-    if (error.response && error.response.status === 422) {
-      const messages = error.response.data.errors;
-      console.error('Validation errors:', messages);
-      alert(Object.values(messages).flat().join('\n'));
-    } else {
-      console.error('Error creating leave:', error);
-      alert('Error creating leave application');
-    }
-  }
-};
+  };
 
+  const handleSubmit = async event => {
+    event.preventDefault();
+    setMessage('');
+    setError('');
+
+    const employeeId = canManageLeaves ? formData.employee_id : user?.employee?.id;
+    const hasOverlap = leaves.some(leave => {
+      const sameEmployee = !employeeId || String(leave.employee_id) === String(employeeId);
+      const activeLeave = leave.status !== 'rejected';
+      return sameEmployee
+        && activeLeave
+        && new Date(formData.start_date) <= new Date(leave.end_date)
+        && new Date(formData.end_date) >= new Date(leave.start_date);
+    });
+
+    if (hasOverlap) {
+      setError('There is already an active leave application for this period.');
+      return;
+    }
+
+    try {
+      const submitData = { ...formData };
+      if (!canManageLeaves && user?.employee?.id) {
+        submitData.employee_id = user.employee.id;
+      }
+
+      await leaveService.create(submitData);
+      setShowModal(false);
+      resetForm();
+      setMessage('Leave application submitted successfully');
+      fetchLeaves();
+    } catch (err) {
+      const validationMessages = err.response?.data?.errors
+        ? Object.values(err.response.data.errors).flat().join('\n')
+        : err.response?.data?.message || 'Error creating leave application';
+      setError(validationMessages);
+    }
+  };
 
   const handleStatusUpdate = async (leaveId, status) => {
     const actionText = status === 'approved' ? 'approve' : 'reject';
-    const actionIcon = status === 'approved' ? 'question' : 'warning';
-
     const result = await Swal.fire({
       title: `Are you sure you want to ${actionText} this leave?`,
-      icon: actionIcon,
+      icon: status === 'approved' ? 'question' : 'warning',
       showCancelButton: true,
       confirmButtonText: `Yes, ${actionText} it`,
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       customClass: {
-        confirmButton: `bg-${status === 'approved' ? 'green' : 'red'}-600 hover:bg-${status === 'approved' ? 'green' : 'red'}-700 text-white px-4 py-2 rounded`,
-        cancelButton: 'bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 me-3 rounded'
+        confirmButton: status === 'approved'
+          ? 'bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded'
+          : 'bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded',
+        cancelButton: 'bg-slate-400 hover:bg-slate-500 text-white px-4 py-2 me-3 rounded',
       },
-      buttonsStyling: false, // important to make customClass work
+      buttonsStyling: false,
     });
 
-    if (result.isConfirmed) {
-      try {
-        await leaveService.updateStatus(leaveId, { status });
-        fetchLeaves();
+    if (!result.isConfirmed) return;
 
-        Swal.fire({
-          icon: status === 'approved' ? 'success' : 'error',
-          title: status === 'approved' ? 'Approved!' : 'Rejected!',
-          text: `Leave request has been ${status}.`,
-          timer: 2000,
-          showConfirmButton: false,
-        });
-      } catch (error) {
-        console.error('Error updating leave status:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Oops!',
-          text: 'Error updating leave status.',
-        });
-      }
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved': return 'text-green-600 bg-green-100';
-      case 'rejected': return 'text-red-600 bg-red-100';
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getLeaveTypeColor = (type) => {
-    switch (type) {
-      case 'sick': return 'text-blue-600 bg-blue-100';
-      case 'casual': return 'text-purple-600 bg-purple-100';
-      case 'annual': return 'text-green-600 bg-green-100';
-      case 'maternity': return 'text-pink-600 bg-pink-100';
-      case 'paternity': return 'text-indigo-600 bg-indigo-100';
-      default: return 'text-gray-600 bg-gray-100';
+    setMessage('');
+    setError('');
+    try {
+      await leaveService.updateStatus(leaveId, { status });
+      setMessage(`Leave request has been ${status}`);
+      fetchLeaves();
+    } catch (err) {
+      console.error('Error updating leave status:', err);
+      setError(err.response?.data?.message || 'Error updating leave status');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex min-h-96 items-center justify-center">
+        <div className="text-center">
+          <div className="professional-loader mx-auto" />
+          <p className="mt-3 text-sm font-medium text-slate-500">Loading leave applications...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900"></h1>
-        {(isAdmin() || isHR() || isEmployee()) && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700"
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Apply for Leave
-          </button>
-        )}
-      </div>
-
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {(isAdmin() || isHR()) && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-              )}
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Leave Type
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Period
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total Days
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Reason
-              </th>
-              {(isAdmin() || isHR()) && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {leaves.length === 0 ? (
-              <tr>
-                <td 
-                  colSpan={(isAdmin() || isHR()) ? 7 : 5} 
-                  className="px-6 py-4 text-center text-sm text-gray-500"
-                >
-                  No leave applications found
-                </td>
-              </tr>
-            ) : (
-              leaves.map((leave) => (
-                <tr key={leave.id}>
-                  {(isAdmin() || isHR()) && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {leave.employee?.user?.name || 'N/A'}
-                    </td>
-                  )}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${getLeaveTypeColor(leave.leave_type)}`}>
-                      {leave.leave_type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {leave.total_days} days
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(leave.status)}`}>
-                      {leave.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                    {leave.reason}
-                  </td>
-                  {(isAdmin() || isHR()) && leave.status === 'pending' && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => handleStatusUpdate(leave.id, 'approved')}
-                        className="text-green-600 hover:text-green-900"
-                        title="Approve Leave"
-                      >
-                        <CheckIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleStatusUpdate(leave.id, 'rejected')}
-                        className="text-red-600 hover:text-red-900"
-                        title="Reject Leave"
-                      >
-                        <XMarkIcon className="h-4 w-4" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))
+      <section className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
+        <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="mt-2 text-3xl font-black">Leaves</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={statusFilter}
+              onChange={event => setStatusFilter(event.target.value)}
+              className="h-11 border border-white/20 bg-white/10 px-3 text-sm font-bold text-white outline-none [color-scheme:dark] focus:border-teal-300 focus:ring-4 focus:ring-teal-300/20"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <select
+              value={typeFilter}
+              onChange={event => setTypeFilter(event.target.value)}
+              className="h-11 border border-white/20 bg-white/10 px-3 text-sm font-bold text-white outline-none [color-scheme:dark] focus:border-teal-300 focus:ring-4 focus:ring-teal-300/20"
+            >
+              <option value="all">All Types</option>
+              {leaveTypes.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+            </select>
+            {canApply && (
+              <button
+                onClick={() => setShowModal(true)}
+                className="inline-flex h-11 items-center gap-2 bg-teal-400 px-4 text-sm font-black text-slate-950 shadow-[0_12px_22px_rgba(15,118,110,0.20)] hover:bg-teal-300"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Apply Leave
+              </button>
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Leave Application Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 text-center">Apply for Leave</h3>
-              <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-                {(isAdmin() || isHR()) && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Employee</label>
-                    <select
-                      required
-                      value={formData.employee_id}
-                      onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    >
-                      <option value="">Select Employee</option>
-                      {employees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.user?.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Leave Type</label>
-                  <select
-                    required
-                    value={formData.leave_type}
-                    onChange={(e) => setFormData({ ...formData, leave_type: e.target.value })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    <option value="sick">Sick Leave</option>
-                    <option value="casual">Casual Leave</option>
-                    <option value="annual">Annual Leave</option>
-                    <option value="maternity">Maternity Leave</option>
-                    <option value="paternity">Paternity Leave</option>
-                    <option value="emergency">Emergency Leave</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">End Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Reason</label>
-                  <textarea
-                    required
-                    rows="3"
-                    value={formData.reason}
-                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Please provide a reason for your leave..."
-                  />
-                </div>
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md"
-                  >
-                    Apply
-                  </button>
-                </div>
-              </form>
-            </div>
           </div>
         </div>
+        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-teal-400 via-amber-300 to-rose-400" />
+      </section>
+
+      {message && <Alert type="success" message={message} />}
+      {error && <Alert type="error" message={error} />}
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Total Requests" value={summary.total} icon={CalendarDaysIcon} theme="teal" />
+        <SummaryCard label="Pending" value={summary.pending} icon={ClockIcon} theme="amber" />
+        <SummaryCard label="Approved" value={summary.approved} icon={CheckCircleIcon} theme="indigo" />
+        <SummaryCard label="Rejected" value={summary.rejected} icon={XCircleIcon} theme="rose" />
+      </div>
+
+      <section className="overflow-hidden rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+        <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">Leave Applications</h2>
+          </div>
+          <span className="w-fit border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
+            {filteredLeaves.length} applications
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/90">
+              <tr>
+                {canManageLeaves && <HeadCell>Employee</HeadCell>}
+                <HeadCell>Leave Type</HeadCell>
+                <HeadCell>Period</HeadCell>
+                <HeadCell>Total Days</HeadCell>
+                <HeadCell>Status</HeadCell>
+                <HeadCell>Reason</HeadCell>
+                {canManageLeaves && <HeadCell>Actions</HeadCell>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white/80">
+              {filteredLeaves.map(leave => {
+                const employeeName = leave.employee?.user?.name || 'N/A';
+                const typeLabel = leaveTypes.find(type => type.value === leave.leave_type)?.label || leave.leave_type || 'Leave';
+                return (
+                  <tr key={leave.id} className="transition hover:bg-teal-50/40">
+                    {canManageLeaves && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex min-w-[220px] items-center">
+                          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[8px] bg-teal-600 shadow-[0_12px_22px_rgba(15,118,110,0.25)]">
+                            <UserCircleIcon className="h-6 w-6 text-white" />
+                          </div>
+                          <div className="ml-4 min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-900">{employeeName}</p>
+                            <p className="mt-1 truncate text-sm text-slate-500">{leave.employee?.department?.name || 'Employee Leave'}</p>
+                          </div>
+                        </div>
+                      </td>
+                    )}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge style={typeStyles[leave.leave_type]}>{typeLabel}</Badge>
+                    </td>
+                    <DataCell primary={formatDate(leave.start_date)} secondary={`to ${formatDate(leave.end_date)}`} />
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-900">{leave.total_days || 0} days</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge style={statusStyles[leave.status]}>{leave.status || 'pending'}</Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="max-w-xs truncate text-sm font-medium text-slate-500">{leave.reason || '-'}</p>
+                    </td>
+                    {canManageLeaves && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <LeaveAction leave={leave} onStatusUpdate={handleStatusUpdate} />
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredLeaves.length === 0 && (
+          <div className="p-10 text-center">
+            <UserGroupIcon className="mx-auto h-12 w-12 text-slate-300" />
+            <h3 className="mt-3 text-sm font-bold text-slate-900">No leave applications found</h3>
+            <p className="mt-1 text-sm text-slate-500">No requests match the selected filters.</p>
+          </div>
+        )}
+      </section>
+
+      {showModal && (
+        <LeaveModal
+          canManageLeaves={canManageLeaves}
+          employees={employees}
+          formData={formData}
+          setFormData={setFormData}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleSubmit}
+        />
       )}
     </div>
   );
-};
+}
 
-export default Leaves;
+function HeadCell({ children }) {
+  return <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-500 whitespace-nowrap">{children}</th>;
+}
+
+function DataCell({ primary, secondary }) {
+  return (
+    <td className="px-6 py-4 whitespace-nowrap">
+      <p className="text-sm font-bold text-slate-900">{primary}</p>
+      {secondary && <p className="mt-1 text-xs font-medium text-slate-500">{secondary}</p>}
+    </td>
+  );
+}
+
+function Badge({ children, style }) {
+  return <span className={`inline-flex border px-2.5 py-1 text-xs font-bold capitalize shadow-sm ${style || 'border-slate-200 bg-slate-100 text-slate-700'}`}>{String(children).replace('_', ' ')}</span>;
+}
+
+function LeaveAction({ leave, onStatusUpdate }) {
+  if (leave.status !== 'pending') {
+    return <span className="border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">Processed</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button onClick={() => onStatusUpdate(leave.id, 'approved')} className="inline-flex items-center gap-2 bg-teal-600 px-3 py-2 text-sm font-black text-white shadow-[0_12px_22px_rgba(15,118,110,0.22)] hover:bg-teal-700">
+        <CheckCircleIcon className="h-4 w-4" />
+        Approve
+      </button>
+      <button onClick={() => onStatusUpdate(leave.id, 'rejected')} className="inline-flex items-center gap-2 bg-rose-600 px-3 py-2 text-sm font-black text-white shadow-[0_12px_22px_rgba(190,18,60,0.18)] hover:bg-rose-700">
+        <XCircleIcon className="h-4 w-4" />
+        Reject
+      </button>
+    </div>
+  );
+}
+
+function SummaryCard(props) {
+  return <SharedStatCard {...props} />;
+}
+
+function Alert({ type = 'error', message }) {
+  return <ToastAlert type={type} message={message} />;
+}
+
+function LeaveModal({ canManageLeaves, employees, formData, setFormData, onClose, onSubmit }) {
+  return (
+    <div className="app-modal-backdrop">
+      <div className="w-full max-w-2xl overflow-hidden rounded-[10px] border border-white/70 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.25)]">
+        <div className="flex items-center justify-between border-b border-slate-200/80 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] px-5 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">Apply for Leave</h2>
+          </div>
+          <button onClick={onClose} className="flex h-10 w-10 rounded-full items-center justify-center bg-slate-100 text-slate-600 hover:bg-slate-200">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-4 p-5">
+          {canManageLeaves && (
+            <Field label="Employee">
+              <select
+                required
+                value={formData.employee_id}
+                onChange={event => setFormData({ ...formData, employee_id: event.target.value })}
+                className="h-11 w-full border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              >
+                <option value="">Select Employee</option>
+                {employees.map(employee => <option key={employee.id} value={employee.id}>{employee.user?.name}</option>)}
+              </select>
+            </Field>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Leave Type">
+              <select
+                required
+                value={formData.leave_type}
+                onChange={event => setFormData({ ...formData, leave_type: event.target.value })}
+                className="h-11 w-full border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              >
+                {leaveTypes.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Start Date">
+              <input
+                required
+                type="date"
+                value={formData.start_date}
+                onChange={event => setFormData({ ...formData, start_date: event.target.value })}
+                className="h-11 w-full border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              />
+            </Field>
+            <Field label="End Date">
+              <input
+                required
+                type="date"
+                value={formData.end_date}
+                onChange={event => setFormData({ ...formData, end_date: event.target.value })}
+                className="h-11 w-full border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              />
+            </Field>
+          </div>
+
+          <Field label="Reason">
+            <textarea
+              required
+              rows="4"
+              value={formData.reason}
+              onChange={event => setFormData({ ...formData, reason: event.target.value })}
+              className="w-full border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-700 outline-none focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
+              placeholder="Please provide a reason for your leave..."
+            />
+          </Field>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className="bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 hover:bg-slate-200">
+              Cancel
+            </button>
+            <button type="submit" className="inline-flex items-center justify-center gap-2 bg-teal-600 px-4 py-2 text-sm font-black text-white shadow-[0_12px_22px_rgba(15,118,110,0.22)] hover:bg-teal-700">
+              <PaperAirplaneIcon className="h-4 w-4" />
+              Submit Application
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function formatDate(date) {
+  if (!date) return '-';
+  return new Date(date).toLocaleDateString('en-BD', { day: '2-digit', month: 'short', year: 'numeric' });
+}

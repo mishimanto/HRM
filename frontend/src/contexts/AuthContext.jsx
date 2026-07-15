@@ -42,14 +42,6 @@ export const AuthProvider = ({ children }) => {
     return response;
   };
 
-  const register = async (userData) => {
-    const response = await authService.register(userData);
-    localStorage.setItem('access_token', response.access_token);
-    localStorage.setItem('user', JSON.stringify(response.user));
-    setUser(response.user);
-    return response;
-  };
-
   const logout = async () => {
     await authService.logout();
     localStorage.removeItem('access_token');
@@ -74,7 +66,6 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     login,
-    register,
     logout,
     loading,
     refreshUser, // <-- add this

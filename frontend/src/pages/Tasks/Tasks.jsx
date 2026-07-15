@@ -1,118 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/api';
 import TaskCard from '../../components/Tasks/TaskCard';
-import TaskForm from '../../components/Tasks/TaskForm';
 import TaskFilters from '../../components/Tasks/TaskFilters';
 import TaskStats from '../../components/Tasks/TaskStats';
+import { ClipboardDocumentListIcon, PlusIcon } from '@heroicons/react/24/outline';
+
+const normalizeRows = response => response.data?.data || response.data || [];
 
 const Tasks = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
   const [filters, setFilters] = useState({
     status: 'all',
     priority: 'all',
-    department_id: 'all'
+    department_id: 'all',
   });
 
-  const canCreateTask = [1, 2, 3].includes(user?.role_id); // Admin, HR, Manager
-  const isEmployee = user?.role_id === 4; // Employee
+  const canCreateTask = [1, 2, 3].includes(user?.role_id);
+  const isEmployee = user?.role_id === 4;
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      
       if (filters.status !== 'all') params.append('status', filters.status);
       if (filters.priority !== 'all') params.append('priority', filters.priority);
-      
-      // Employee না হলে department filter add করবে
-      if (!isEmployee && filters.department_id !== 'all') {
-        params.append('department_id', filters.department_id);
-      }
-      
+      if (!isEmployee && filters.department_id !== 'all') params.append('department_id', filters.department_id);
+
       const response = await api.get(`/tasks?${params}`);
-      setTasks(response.data.data || response.data);
+      setTasks(normalizeRows(response));
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, isEmployee]);
 
-  // Departments fetch করুন
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
+    if (isEmployee) {
+      setDepartments([]);
+      return;
+    }
+
     try {
-      // Employee হলে departments fetch করবে না
-      if (isEmployee) {
-        setDepartments([]);
-        return;
-      }
-
-      console.log('Fetching departments...');
       const response = await api.get('/departments');
-      console.log('Departments response:', response.data);
-      setDepartments(response.data);
+      setDepartments(normalizeRows(response));
     } catch (error) {
       console.error('Error fetching departments:', error);
-      
-      // Error হলে fallback empty array set করুন
       setDepartments([]);
-      
-      // Debugging এর জন্য error details log করুন
-      if (error.response) {
-        console.error('Error status:', error.response.status);
-        console.error('Error data:', error.response.data);
-      }
     }
-  };
+  }, [isEmployee]);
 
   useEffect(() => {
     fetchDepartments();
-  }, [user]); // user change হলে re-fetch করবে
+  }, [fetchDepartments]);
 
   useEffect(() => {
     fetchTasks();
-  }, [filters]);
-
-  const handleCreateTask = async (taskData) => {
-    try {
-      console.log('Submitting task data:', taskData);
-      
-      // Check if it's FormData (with attachments)
-      if (taskData instanceof FormData) {
-        console.log('Sending as FormData with attachments');
-        
-        // Debug: Show what's in FormData
-        for (let pair of taskData.entries()) {
-          console.log(pair[0] + ': ', pair[1]);
-        }
-        
-        const response = await api.post('/tasks', taskData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
-        setShowForm(false);
-        fetchTasks();
-        return response;
-      } else {
-        // Regular JSON data
-        console.log('Sending as JSON data');
-        const response = await api.post('/tasks', taskData);
-        setShowForm(false);
-        fetchTasks();
-        return response;
-      }
-    } catch (error) {
-      console.error('Error creating task:', error);
-      console.error('Error response:', error.response);
-      throw error;
-    }
-  };
+  }, [fetchTasks]);
 
   const handleUpdateTask = async (taskId, updates) => {
     try {
@@ -126,70 +77,99 @@ const Tasks = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-96 items-center justify-center">
+        <div className="text-center">
+          <div className="professional-loader mx-auto" />
+          <p className="mt-3 text-sm font-medium text-slate-500">Loading tasks...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900"></h1>
-          <p className="text-gray-600"></p>
-        </div>
-        {canCreateTask && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Create Task
-          </button>
-        )}
-      </div>
+      <TaskHero
+        title="Tasks"
+        count={tasks.length}
+        canCreate={canCreateTask}
+        onCreate={() => navigate('/tasks/create')}
+      />
 
       <TaskStats />
 
-      <TaskFilters 
-        filters={filters} 
-        onFilterChange={setFilters} 
+      <TaskFilters
+        filters={filters}
+        onFilterChange={setFilters}
         departments={departments}
         userRole={user?.role_id}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {tasks.length === 0 ? (
-          <div className="col-span-2 text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">📝</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks found</h3>
-            <p className="text-gray-600">
-              {canCreateTask 
-                ? 'Get started by creating your first task' 
-                : 'No tasks have been assigned to you yet'
-              }
-            </p>
+      <section className="overflow-hidden rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+        <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">Task Board</h2>
           </div>
-        ) : (
-          tasks.map(task => (
-            <TaskCard 
-              key={task.id} 
-              task={task} 
-              onUpdate={handleUpdateTask}
-              canEdit={canCreateTask || task.assigned_to === user?.employee?.id}
-            />
-          ))
-        )}
-      </div>
+          <span className="w-fit border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
+            {tasks.length} tasks
+          </span>
+        </div>
 
-      {showForm && (
-        <TaskForm
-          onSubmit={handleCreateTask}
-          onCancel={() => setShowForm(false)}
-        />
-      )}
+        <div className="grid grid-cols-1 gap-5 p-5 xl:grid-cols-2">
+          {tasks.length === 0 ? (
+            <EmptyState canCreate={canCreateTask} />
+          ) : (
+            tasks.map(task => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onUpdate={handleUpdateTask}
+              />
+            ))
+          )}
+        </div>
+      </section>
     </div>
   );
 };
+
+function TaskHero({ title, eyebrow, description, count, canCreate, onCreate }) {
+  return (
+    <section className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
+      <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
+      <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase text-teal-200/80">{eyebrow}</p>
+          <h1 className="mt-2 text-3xl font-black">{title}</h1>
+          <p className="mt-2 max-w-2xl text-sm font-medium text-cyan-50/75">{description}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="hidden items-center gap-3 border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-cyan-50/85 sm:flex">
+            <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-teal-400" /> Active</span>
+            <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-amber-300" /> Due</span>
+          </div>
+          <span className="border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-cyan-50/85">{count} Tasks</span>
+          {canCreate && (
+            <button onClick={onCreate} className="inline-flex h-11 items-center gap-2 bg-teal-400 px-4 text-sm font-black text-slate-950 shadow-[0_12px_22px_rgba(15,118,110,0.20)] hover:bg-teal-300">
+              <PlusIcon className="h-4 w-4" />
+              Create Task
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-teal-400 via-amber-300 to-rose-400" />
+    </section>
+  );
+}
+
+function EmptyState({ canCreate }) {
+  return (
+    <div className="col-span-full p-10 text-center">
+      <ClipboardDocumentListIcon className="mx-auto h-12 w-12 text-slate-300" />
+      <h3 className="mt-3 text-sm font-bold text-slate-900">No tasks found</h3>
+      <p className="mt-1 text-sm text-slate-500">{canCreate ? 'Create a new task to start tracking work.' : 'No tasks have been assigned to you yet.'}</p>
+    </div>
+  );
+}
 
 export default Tasks;

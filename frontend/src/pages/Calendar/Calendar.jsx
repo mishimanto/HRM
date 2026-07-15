@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ToastAlert from '../../components/UI/ToastAlert';
+import SharedStatCard from '../../components/UI/StatCard';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -6,6 +8,25 @@ import listPlugin from '@fullcalendar/list';
 import Swal from 'sweetalert2';
 import { calendarService } from '../../services/calendarService';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+  ArrowPathIcon,
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  GiftIcon,
+  SparklesIcon,
+  UserGroupIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/outline';
+
+const legendItems = [
+  { label: 'Approved', color: 'bg-teal-500' },
+  { label: 'Pending', color: 'bg-amber-400' },
+  { label: 'Rejected / Absent', color: 'bg-rose-500' },
+  { label: 'Birthdays', color: 'bg-indigo-500' },
+  { label: 'Holidays', color: 'bg-slate-500' },
+];
 
 const Calendar = () => {
   const { user } = useAuth();
@@ -13,80 +34,71 @@ const Calendar = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Role checking functions
-  const isAdmin = () => user?.role?.slug === 'admin';
-  const isHR = () => user?.role?.slug === 'hr';
+  const canViewAllEvents = useMemo(() => ['admin', 'hr'].includes(user?.role?.slug), [user?.role?.slug]);
 
-  // Check if user can view all events
-  const canViewAllEvents = () => isAdmin() || isHR();
-
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      
-      let response;
-      
-      if (canViewAllEvents()) {
-        response = await calendarService.getEvents();
-      } else {
-        response = await calendarService.getMyEvents();
-      }
+
+      const response = canViewAllEvents
+        ? await calendarService.getEvents()
+        : await calendarService.getMyEvents();
 
       setEvents(response.data || []);
-    } catch (error) {
-      console.error('Error fetching events:', error);
+    } catch (err) {
+      console.error('Error fetching events:', err);
       setError('Failed to load calendar events');
       setEvents([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [canViewAllEvents]);
 
-  const handleEventClick = (clickInfo) => {
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const summary = useMemo(() => ({
+    total: events.length,
+    approved: events.filter(event => event.extendedProps?.status === 'approved').length,
+    pending: events.filter(event => event.extendedProps?.status === 'pending').length,
+    special: events.filter(event => ['birthday', 'holiday'].includes(event.extendedProps?.type)).length,
+  }), [events]);
+
+  const handleEventClick = clickInfo => {
     const event = clickInfo.event;
     const eventType = event.extendedProps?.type;
-    
-    // Event details prepare
-    let title = event.title;
+
     let htmlContent = `
       <div class="text-left" style="margin: 15px 0;">
         <p style="margin-bottom: 8px;"><strong>Start:</strong> ${formatDate(event.startStr)}</p>
     `;
-    
+
     if (event.end) {
       htmlContent += `<p style="margin-bottom: 8px;"><strong>End:</strong> ${formatDate(event.endStr)}</p>`;
     }
-    
+
     if (eventType) {
       htmlContent += `<p style="margin-bottom: 8px;"><strong>Type:</strong> ${eventType}</p>`;
     }
 
-    // Admin/HR der extra information
-    if (canViewAllEvents() && event.extendedProps?.employee_name) {
+    if (canViewAllEvents && event.extendedProps?.employee_name) {
       htmlContent += `<p style="margin-bottom: 8px;"><strong>Employee:</strong> ${event.extendedProps.employee_name}</p>`;
     }
 
-    // Leave status show korbe
     if (event.extendedProps?.status) {
-      const statusColor = getStatusColor(event.extendedProps.status);
-      htmlContent += `<p style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${event.extendedProps.status.toUpperCase()}</span></p>`;
+      htmlContent += `<p style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: ${getStatusColor(event.extendedProps.status)}; font-weight: bold;">${event.extendedProps.status.toUpperCase()}</span></p>`;
     }
 
-    // Reason show korbe (if available)
     if (event.extendedProps?.reason) {
       htmlContent += `<p style="margin-bottom: 8px;"><strong>Reason:</strong> ${event.extendedProps.reason}</p>`;
     }
 
-    htmlContent += `</div>`;
+    htmlContent += '</div>';
 
-    // SweetAlert show without confirm button
     Swal.fire({
-      title: title,
+      title: event.title,
       html: htmlContent,
       icon: 'info',
       showConfirmButton: false,
@@ -95,50 +107,17 @@ const Calendar = () => {
       customClass: {
         popup: 'rounded-lg',
         title: 'text-xl font-bold text-gray-900 mb-0',
-        closeButton: 'text-gray-400 hover:text-gray-600 text-2xl'
-      }
+        closeButton: 'text-gray-400 hover:text-gray-600 text-2xl',
+      },
     });
-  };
-
-  // Date format helper
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  // Status color helper function
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved': return '#10B981';
-      case 'pending': return '#F59E0B';
-      case 'rejected': return '#EF4444';
-      default: return '#6B7280';
-    }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-red-600 text-center">
-          <p>{error}</p>
-          <button 
-            onClick={fetchEvents}
-            className="mt-2 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"
-          >
-            Retry
-          </button>
+      <div className="flex min-h-96 items-center justify-center">
+        <div className="text-center">
+          <div className="professional-loader mx-auto" />
+          <p className="mt-3 text-sm font-medium text-slate-500">Loading calendar...</p>
         </div>
       </div>
     );
@@ -146,96 +125,126 @@ const Calendar = () => {
 
   return (
     <div className="space-y-6">
-      {/* <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-        <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded">
-          {canViewAllEvents() ? '📅 Viewing All Events' : '👤 Viewing My Events'}
+      <section className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
+        <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-black">Calendar View</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="hidden items-center gap-3 border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-cyan-50/85 sm:flex">
+              <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-teal-400" /> Leave</span>
+              <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-indigo-400" /> Special</span>
+            </div>
+            <button
+              type="button"
+              onClick={fetchEvents}
+              className="inline-flex h-11 items-center gap-2 bg-teal-400 px-4 text-sm font-black text-slate-950 shadow-[0_12px_22px_rgba(15,118,110,0.20)] hover:bg-teal-300"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              Refresh
+            </button>
+          </div>
         </div>
-      </div> */}
+        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-teal-400 via-amber-300 to-rose-400" />
+      </section>
 
-      {/* Calendar */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <FullCalendar
-          plugins={[dayGridPlugin, interactionPlugin, listPlugin]}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,dayGridWeek,dayGridDay,listMonth',
-          }}
-          initialView="dayGridMonth"
-          editable={false}
-          selectable={false}
-          selectMirror={true}
-          dayMaxEvents={true}
-          weekends={true}
-          events={events}
-          eventClick={handleEventClick}
-          height="auto"
-          eventDisplay="block"
-          eventColor="#3788d8"
-          views={{
-            listMonth: { buttonText: 'list' },
-          }}
-          // Time remove korar jonno correct options
-          displayEventTime={false}
-          allDayText=""
-          slotLabelFormat={{
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-          }}
-        />
+      {error && <Alert type="error" message={error} action={fetchEvents} />}
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Total Events" value={summary.total} icon={CalendarDaysIcon} theme="teal" />
+        <SummaryCard label="Approved" value={summary.approved} icon={CheckCircleIcon} theme="indigo" />
+        <SummaryCard label="Pending" value={summary.pending} icon={ClockIcon} theme="amber" />
+        <SummaryCard label="Special Days" value={summary.special} icon={SparklesIcon} theme="rose" />
       </div>
 
-      {/* Legend - Role-based */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <h3 className="text-lg font-medium text-gray-900 mb-3">Legend</h3>
-        <div className="flex flex-wrap gap-4">
-          {/* Common for all users */}
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">Approved</span>
+      <section className="overflow-hidden rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+        <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">Event Calendar</h2>
           </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-yellow-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">Pending</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">Rejected / Absent</span>
-          </div>
-          
-          {/* Only for employees */}
-          {!canViewAllEvents() && (
-            <>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-purple-500 rounded mr-2"></div>
-                <span className="text-sm text-gray-600">Your Birthday</span>
-              </div>
-            </>
-          )}
-          
-          {/* Only for Admin/HR */}
-          {canViewAllEvents() && (
-            <>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
-                <span className="text-sm text-gray-600">Other Employees</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-purple-500 rounded mr-2"></div>
-                <span className="text-sm text-gray-600">Birthdays</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 bg-gray-500 rounded mr-2"></div>
-                <span className="text-sm text-gray-600">Holidays</span>
-              </div>
-            </>
-          )}
+          <span className="w-fit border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
+            {events.length} events
+          </span>
         </div>
-      </div>
+
+        <div className="calendar-shell p-4 sm:p-5">
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin, listPlugin]}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,dayGridWeek,dayGridDay,listMonth',
+            }}
+            initialView="dayGridMonth"
+            editable={false}
+            selectable={false}
+            selectMirror
+            dayMaxEvents
+            weekends
+            events={events}
+            eventClick={handleEventClick}
+            height="auto"
+            eventDisplay="block"
+            eventColor="#0f766e"
+            views={{
+              listMonth: { buttonText: 'list' },
+            }}
+            displayEventTime={false}
+            allDayText=""
+            slotLabelFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+        <div className="border-b border-slate-200/80 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] px-5 py-4">
+          <h2 className="text-lg font-bold text-slate-950">Legend</h2>
+        </div>
+        <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-5">
+          {legendItems
+            .filter(item => canViewAllEvents || !['Holidays'].includes(item.label))
+            .map(item => (
+              <div key={item.label} className="flex items-center gap-3 border border-slate-100 bg-slate-50 px-3 py-3">
+                <span className={`h-3 w-3 rounded-full ring-4 ring-white ${item.color}`} />
+                <span className="text-sm font-bold text-slate-700">{item.label}</span>
+              </div>
+            ))}
+        </div>
+      </section>
     </div>
   );
 };
+
+function SummaryCard(props) {
+  return <SharedStatCard {...props} />;
+}
+
+function Alert({ type = 'error', message }) {
+  return <ToastAlert type={type} message={message} />;
+}
+
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function getStatusColor(status) {
+  switch (status) {
+    case 'approved': return '#0f766e';
+    case 'pending': return '#d97706';
+    case 'rejected': return '#e11d48';
+    default: return '#64748b';
+  }
+}
 
 export default Calendar;

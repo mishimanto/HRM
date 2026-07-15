@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { dashboardService } from '../../services/dashboardService';
+import StatCard from '../../components/UI/StatCard';
 import {
   ChartBarIcon,
   UsersIcon,
@@ -22,27 +23,21 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  LineElement,
-  PointElement,
   ArcElement,
   Title,
   Tooltip,
   Legend,
-  Filler,
 } from 'chart.js';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Bar, Pie } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
-  LineElement,
-  PointElement,
   ArcElement,
   Title,
   Tooltip,
-  Legend,
-  Filler
+  Legend
 );
 
 // Clock Component
@@ -92,88 +87,64 @@ const DigitalClock = () => {
   };
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center space-x-4">
+    <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-center gap-4">
         {getWeatherIcon()}
-        <div>
-          <div className="text-4xl font-bold text-white">
-            {formatTime(currentTime)}
+        <div className="text-left lg:text-center">
+          <div className="text-2xl font-bold text-white">
+            {getGreeting()}
           </div>
-          <div className="text-primary-100 text-lg">
-            {formatDate(currentTime)}
+          <div className="text-sm font-medium text-cyan-50/75">
+            Have a productive day!
           </div>
         </div>
       </div>
-      <div className="text-right">
-        <div className="text-2xl font-bold text-white">
-          {getGreeting()}
-        </div>
-        <div className="text-primary-100">
-          Have a productive day!
-        </div>
+      <div>
+          <div className="text-xl font-bold text-white sm:text-3xl">
+            {formatTime(currentTime)}
+          </div>
+          <div className="mt-1 text-sm font-medium text-cyan-50/80 sm:text-base">
+            {formatDate(currentTime)}
+          </div>
       </div>
     </div>
   );
 };
 
-const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
-  <div 
-    className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
-    onClick={onClick}
-  >
-    <div className="p-6">
-      <div className="flex items-center">
-        <div className={`flex-shrink-0 p-3 rounded-xl ${color} bg-opacity-10`}>
-          {React.createElement(icon, { className: `h-6 w-6 ${color}` })}
-        </div>
-        <div className="ml-4">
-          <dt className="text-sm font-medium text-gray-500 truncate">
-            {title}
-          </dt>
-          <dd className="text-2xl font-bold text-gray-900">{value}</dd>
-          {subtitle && (
-            <dd className="text-xs text-gray-400 mt-1">{subtitle}</dd>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 const ActivityItem = ({ activity }) => (
-  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 rounded-lg px-2 transition-colors duration-200">
+  <div className="flex items-center justify-between border border-slate-100 bg-white/80 px-3 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:bg-teal-50/50 hover:shadow-md">
     <div className="flex items-center space-x-3">
-      <div className={`flex-shrink-0 w-3 h-3 rounded-full ${
+      <div className={`flex-shrink-0 h-3 w-3 rounded-full ring-4 ring-slate-100 ${
         activity.status === 'approved' ? 'bg-green-500' :
         activity.status === 'rejected' ? 'bg-red-500' :
         activity.status === 'pending' ? 'bg-yellow-500' :
         'bg-blue-500'
       }`} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-gray-900 truncate">{activity.type}</p>
-        <p className="text-sm text-gray-500 truncate">{activity.description}</p>
+        <p className="truncate text-sm font-bold text-slate-900">{activity.type}</p>
+        <p className="truncate text-sm text-slate-500">{activity.description}</p>
       </div>
     </div>
-    <span className="text-xs text-gray-400 whitespace-nowrap">{activity.time}</span>
+    <span className="whitespace-nowrap text-xs font-semibold text-slate-400">{activity.time}</span>
   </div>
 );
 
 const TaskItem = ({ task }) => (
-  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 rounded-lg px-2 transition-colors duration-200">
+  <div className="flex items-center justify-between border border-slate-100 bg-white/80 px-3 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50/40 hover:shadow-md">
     <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+      <p className="truncate text-sm font-bold text-slate-900">{task.title}</p>
       <div className="flex items-center space-x-3 mt-1">
-        <span className={`text-xs px-2 py-1 rounded-full ${
+        <span className={`border px-2 py-1 text-xs font-bold ${
           task.priority === 'high' ? 'bg-red-100 text-red-800 border border-red-200' :
           task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
           'bg-green-100 text-green-800 border border-green-200'
         }`}>
           {task.priority}
         </span>
-        <span className="text-xs text-gray-500">Due: {new Date(task.due_date).toLocaleDateString()}</span>
+        <span className="text-xs font-medium text-slate-500">Due: {new Date(task.due_date).toLocaleDateString()}</span>
       </div>
     </div>
-    <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
+    <span className={`whitespace-nowrap border px-2 py-1 text-xs font-bold ${
       task.status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200' :
       task.status === 'in_progress' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
       'bg-gray-100 text-gray-800 border border-gray-200'
@@ -194,47 +165,63 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Role checking functions based on your database
-  const isAdmin = () => user?.role_id === 1;
-  const isHR = () => user?.role_id === 2;
-  const isManager = () => user?.role_id === 3;
-
-  // Check if user can view all data (admin/hr/manager)
-  const canViewAllData = () => isAdmin() || isHR() || isManager();
+  const canViewAllData = [1, 2, 3].includes(user?.role_id);
 
   // Chart data based on real data
+  const chartPalette = ['#14b8a6', '#f59e0b', '#6366f1', '#f43f5e', '#06b6d4', '#84cc16', '#f97316', '#8b5cf6'];
+
+  const workforceChartData = {
+    labels: ['Employees', 'Active Employees', 'Pending Leaves', 'Task Rate'],
+    datasets: [
+      {
+        label: 'Workforce Snapshot',
+        data: [
+          stats?.total_employees || 0,
+          stats?.active_employees || stats?.today_attendance || 0,
+          stats?.pending_leaves || 0,
+          stats?.task_completion_rate || 0,
+        ],
+        backgroundColor: ['#14b8a6', '#6366f1', '#f59e0b', '#f43f5e'],
+        borderRadius: 8,
+        borderSkipped: false,
+        maxBarThickness: 48,
+      },
+    ],
+  };
+
   const departmentChartData = {
     labels: departmentStats.map(dept => dept.name) || [],
     datasets: [
       {
         label: 'Employees per Department',
         data: departmentStats.map(dept => dept.employee_count) || [],
-        backgroundColor: [
-          '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-          '#06B6D4', '#84CC16', '#F97316', '#6366F1', '#EC4899'
-        ],
-        borderWidth: 2,
-        borderColor: '#fff',
+        backgroundColor: chartPalette,
+        borderRadius: 8,
+        borderSkipped: false,
+        maxBarThickness: 46,
       },
     ],
   };
 
+  const hasAttendanceBreakdown = ['present', 'absent', 'late', 'half_day'].some(key => Number(attendanceStats[key] || 0) > 0);
   const attendanceChartData = {
-    labels: ['Present', 'Absent', 'Late', 'Half Day'],
+    labels: hasAttendanceBreakdown ? ['Present', 'Absent', 'Late', 'Half Day'] : ['Present', 'Not Marked'],
     datasets: [
       {
         label: 'Today\'s Attendance',
-        data: [
+        data: hasAttendanceBreakdown ? [
           attendanceStats.present || 0,
           attendanceStats.absent || 0,
           attendanceStats.late || 0,
           attendanceStats.half_day || 0
+        ] : [
+          stats?.today_attendance || 0,
+          Math.max((stats?.total_employees || 0) - (stats?.today_attendance || 0), 0),
         ],
-        backgroundColor: [
-          '#10B981', '#EF4444', '#F59E0B', '#3B82F6'
-        ],
-        borderWidth: 2,
+        backgroundColor: hasAttendanceBreakdown ? ['#14b8a6', '#f43f5e', '#f59e0b', '#6366f1'] : ['#14b8a6', '#cbd5e1'],
+        borderWidth: 4,
         borderColor: '#fff',
+        hoverOffset: 8,
       },
     ],
   };
@@ -243,14 +230,57 @@ const Dashboard = () => {
     labels: payrollTrend.map(item => item.month) || [],
     datasets: [
       {
-        label: 'Payroll Trend',
+        label: 'Payroll Amount',
         data: payrollTrend.map(item => item.total_amount) || [],
-        borderColor: '#8B5CF6',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        fill: true,
-        tension: 0.4,
+        backgroundColor: '#0f766e',
+        hoverBackgroundColor: '#14b8a6',
+        borderRadius: 8,
+        borderSkipped: false,
+        maxBarThickness: 44,
       },
     ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: {
+          boxWidth: 10,
+          boxHeight: 10,
+          color: '#475569',
+          font: { size: 12, weight: '600' },
+        },
+      },
+      tooltip: {
+        backgroundColor: '#0f2137',
+        padding: 12,
+        titleColor: '#ffffff',
+        bodyColor: '#dbeafe',
+      },
+    },
+  };
+
+  const barOptions = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      legend: { display: false },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { color: '#64748b', precision: 0 },
+        grid: { color: 'rgba(148, 163, 184, 0.18)' },
+        border: { display: false },
+      },
+      x: {
+        ticks: { color: '#64748b' },
+        grid: { display: false },
+        border: { display: false },
+      },
+    },
   };
 
   useEffect(() => {
@@ -258,13 +288,13 @@ const Dashboard = () => {
       try {
         setLoading(true);
         const response = await dashboardService.getDashboardStats();
-        
+
         if (response.data.success) {
           const data = response.data.data;
           setStats(data);
           setRecentActivities(data.recent_activities || []);
-          
-          if (canViewAllData()) {
+
+          if (canViewAllData) {
             setDepartmentStats(data.department_stats || []);
             setAttendanceStats(data.attendance_stats || {});
             setPayrollTrend(data.payroll_trend || []);
@@ -283,13 +313,13 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, [user]);
+  }, [user, canViewAllData]);
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <div className="professional-loader mx-auto" />
           <p className="mt-3 text-gray-600">Loading dashboard data...</p>
         </div>
       </div>
@@ -311,61 +341,57 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Clock Section with Gradient */}
-      <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 shadow-2xl rounded-2xl p-8 text-white relative overflow-hidden">
+    <div className="relative -m-4 min-h-full overflow-hidden bg-[linear-gradient(135deg,#e8f3f6_0%,#f6f8fb_42%,#eef2ff_100%)] p-4 sm:-m-6 sm:p-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[linear-gradient(90deg,rgba(20,184,166,0.16),rgba(245,158,11,0.13),rgba(244,63,94,0.12))]" />
+      <div className="pointer-events-none absolute inset-x-6 top-6 h-32 border border-white/60 bg-white/30 shadow-[0_24px_80px_rgba(15,33,55,0.08)]" />
+      <div className="relative space-y-6">
+      <div className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_54%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.28),0_8px_0_rgba(15,33,55,0.10)] sm:p-8">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
+        <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
         <DigitalClock />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white bg-opacity-5 rounded-full -translate-y-32 translate-x-32"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white bg-opacity-5 rounded-full translate-y-24 -translate-x-24"></div>
+        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-teal-400 via-amber-300 to-rose-400" />
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {canViewAllData() ? (
-          // Admin/HR/Manager Dashboard - Pure Dynamic Data
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {canViewAllData ? (
           <>
             <StatCard
               title="Total Employees"
               value={stats.total_employees || 0}
-              subtitle="Registered in system"
               icon={UsersIcon}
-              color="text-blue-600"
+              theme="teal"
               onClick={() => window.location.href = '/employees'}
             />
             <StatCard
-              title="Active Today"
+              title="Employees Active Today"
               value={stats.today_attendance || 0}
-              subtitle="Present employees"
               icon={CalendarIcon}
-              color="text-green-600"
+              theme="indigo"
               onClick={() => window.location.href = '/attendances'}
             />
             <StatCard
               title="Pending Leaves"
               value={stats.pending_leaves || 0}
-              subtitle="Awaiting approval"
               icon={ExclamationTriangleIcon}
-              color="text-yellow-600"
+              theme="amber"
               onClick={() => window.location.href = '/leaves'}
             />
             <StatCard
               title="Task Completion"
               value={`${stats.task_completion_rate || 0}%`}
-              subtitle="This month"
               icon={CheckCircleIcon}
-              color="text-purple-600"
+              theme="rose"
               onClick={() => window.location.href = '/tasks'}
             />
           </>
         ) : (
-          // Employee Dashboard - Pure Dynamic Data
           <>
             <StatCard
               title="Pending Leaves"
               value={stats.my_pending_leaves || 0}
               subtitle="Awaiting approval"
               icon={ExclamationTriangleIcon}
-              color="text-yellow-600"
+              theme="amber"
               onClick={() => window.location.href = '/leaves'}
             />
             <StatCard
@@ -373,7 +399,7 @@ const Dashboard = () => {
               value={`${stats.task_completion_rate || 0}%`}
               subtitle={`${stats.completed_tasks || 0}/${stats.total_tasks || 0} tasks`}
               icon={CheckCircleIcon}
-              color="text-green-600"
+              theme="teal"
               onClick={() => window.location.href = '/my-tasks'}
             />
             <StatCard
@@ -381,7 +407,7 @@ const Dashboard = () => {
               value={`${stats.work_hours || 0}h`}
               subtitle="This month"
               icon={ClockIcon}
-              color="text-blue-600"
+              theme="indigo"
               onClick={() => window.location.href = '/attendances'}
             />
             <StatCard
@@ -389,122 +415,102 @@ const Dashboard = () => {
               value={`#${stats.department_ranking || 0}`}
               subtitle={`of ${stats.department_size || 0}`}
               icon={ChartBarIcon}
-              color="text-purple-600"
+              theme="rose"
             />
           </>
         )}
       </div>
 
-      {/* Charts and Additional Data */}
-      {canViewAllData() && (
-        <div className="grid grid-cols-1 gap-6">
-          {/* Department Distribution Chart */}
-          {departmentStats.length > 0 && (
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <BuildingOfficeIcon className="h-5 w-5 text-blue-600 mr-2" />
-                Department Distribution
-              </h3>
-              <div className="h-80">
-                <Bar 
-                  data={departmentChartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                      legend: {
-                        display: false,
-                      },
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        grid: {
-                          color: 'rgba(0, 0, 0, 0.1)',
-                        },
-                      },
-                      x: {
-                        grid: {
-                          display: false,
-                        },
-                      },
-                    },
-                  }}
+      {canViewAllData && (
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
+          <section className="rounded-[8px] border border-white/70 bg-white/90 shadow-[0_20px_50px_rgba(15,23,42,0.10),0_6px_0_rgba(15,118,110,0.06)] backdrop-blur xl:col-span-3">
+              <div className="p-4 bg-gray-100 border-b flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-950">{departmentStats.length > 0 ? 'Department Distribution' : 'Workforce Snapshot'}</h3>
+                </div>
+                <div className="flex items-center justify-center">
+                  <BuildingOfficeIcon className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="p-4">
+                <Bar
+                  data={departmentStats.length > 0 ? departmentChartData : workforceChartData}
+                  options={barOptions}
                 />
               </div>
-            </div>
-          )}
+          </section>
 
-          {/* Attendance Status Chart */}
-          {Object.keys(attendanceStats).length > 0 && (
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <CalendarIcon className="h-5 w-5 text-green-600 mr-2" />
-                Today's Attendance Overview
-              </h3>
-              <div className="h-80">
-                <Doughnut 
+          <section className="rounded-[8px] border border-white/70 bg-white/90 shadow-[0_20px_50px_rgba(15,23,42,0.10),0_6px_0_rgba(245,158,11,0.07)] backdrop-blur xl:col-span-2">
+              <div className="p-4 bg-gray-100 border-b flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-950">Attendance Overview</h3>
+                </div>
+                <div className="flex items-center justify-center">
+                  <CalendarIcon className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="p-4">
+                <Pie
                   data={attendanceChartData}
                   options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    ...chartOptions,
                     plugins: {
+                      ...chartOptions.plugins,
                       legend: {
                         position: 'bottom',
+                        ...chartOptions.plugins.legend,
                       },
                     },
                   }}
                 />
               </div>
-            </div>
-          )}
+          </section>
 
-          {/* Payroll Trend Chart */}
           {payrollTrend.length > 0 && (
-            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 lg:col-span-2">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <CurrencyDollarIcon className="h-5 w-5 text-purple-600 mr-2" />
-                Payroll Trend - {new Date().getFullYear()}
-              </h3>
-              <div className="h-80">
-                <Line 
+            <section className="rounded-[8px] border border-white/70 bg-white/90 shadow-[0_20px_50px_rgba(15,23,42,0.10),0_6px_0_rgba(190,18,60,0.06)] backdrop-blur xl:col-span-5">
+              <div className="p-4 bg-gray-100 border-b flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-950">Payroll Trend - {new Date().getFullYear()}</h3>
+                </div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-[8px] bg-rose-500 text-white shadow-[0_12px_24px_rgba(190,18,60,0.22)]">
+                  <CurrencyDollarIcon className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="p-4">
+                <Bar
                   data={payrollTrendData}
                   options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    ...barOptions,
                     scales: {
+                      ...barOptions.scales,
                       y: {
+                        ...barOptions.scales.y,
                         beginAtZero: true,
-                        grid: {
-                          color: 'rgba(0, 0, 0, 0.1)',
-                        },
                         ticks: {
+                          color: '#64748b',
                           callback: function(value) {
-                            return '$' + value.toLocaleString();
+                            return 'BDT ' + value.toLocaleString();
                           },
                         },
                       },
-                      x: {
-                        grid: {
-                          display: false,
-                        },
-                      },
                     },
                   }}
                 />
               </div>
-            </div>
+            </section>
           )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Recent Activities */}
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {canViewAllData() ? 'Recent Activities' : 'My Recent Activities'}
-          </h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <section className="rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+          <div className="p-4 bg-gray-100 border-b flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-950">
+              {canViewAllData ? 'Recent Activities' : 'My Recent Activities'}
+            </h3>
+            <DocumentChartBarIcon className="h-5 w-5 text-teal-600" />
+          </div>
+          <div className="space-y-2 p-4 overflow-y-auto">
             {recentActivities.length > 0 ? (
               recentActivities.map((activity, index) => (
                 <ActivityItem key={index} activity={activity} />
@@ -516,39 +522,42 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Additional Section */}
-        {canViewAllData() ? (
-          // Admin/HR/Manager - Quick Stats
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Overview</h3>
-            <div className="space-y-4">
+        {canViewAllData ? (
+          <section className="rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+            <div className="p-4 bg-gray-100 border-b flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-950">Performance Overview</h3>
+              <ArrowTrendingUpIcon className="h-5 w-5 text-amber-600" />
+            </div>
+            <div className="space-y-4 p-4">
               <div className="flex justify-between items-center py-3 border-b border-gray-100">
                 <span className="text-sm font-medium text-gray-700">Total Departments</span>
-                <span className="text-lg font-bold text-primary-600">{stats.total_departments || 0}</span>
+                <span className="text-lg font-bold text-teal-700">{stats.total_departments || 0}</span>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-gray-100">
                 <span className="text-sm font-medium text-gray-700">Active Employees</span>
-                <span className="text-lg font-bold text-green-600">{stats.active_employees || 0}</span>
+                <span className="text-lg font-bold text-indigo-700">{stats.active_employees || 0}</span>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-gray-100">
                 <span className="text-sm font-medium text-gray-700">Task Completion Rate</span>
-                <span className="text-lg font-bold text-blue-600">{stats.task_completion_rate || 0}%</span>
+                <span className="text-lg font-bold text-amber-700">{stats.task_completion_rate || 0}%</span>
               </div>
               <div className="flex justify-between items-center py-3">
                 <span className="text-sm font-medium text-gray-700">Monthly Payroll</span>
-                <span className="text-lg font-bold text-purple-600">
-                  ${(stats.total_payroll || 0).toLocaleString()}
+                <span className="text-lg font-bold text-rose-700">
+                  BDT {(stats.total_payroll || 0).toLocaleString()}
                 </span>
               </div>
             </div>
-          </div>
+          </section>
         ) : (
-          // Employee - Upcoming Tasks
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Tasks</h3>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+          <section className="rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+            <div className="p-4 bg-gray-100 border-b flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-950">Upcoming Tasks</h3>
+              <CheckCircleIcon className="h-5 w-5 text-teal-600" />
+            </div>
+            <div className="space-y-2 p-4 max-h-96 overflow-y-auto">
               {upcomingTasks.length > 0 ? (
                 upcomingTasks.map((task, index) => (
                   <TaskItem key={index} task={task} />
@@ -560,8 +569,9 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
-          </div>
+          </section>
         )}
+      </div>
       </div>
     </div>
   );

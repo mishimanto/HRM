@@ -1,138 +1,174 @@
 import React, { useState } from 'react';
+import ToastAlert from '../../components/UI/ToastAlert';
 import { useNavigate } from 'react-router-dom';
+import {
+  ArrowRightIcon,
+  CheckCircleIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  LockClosedIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { useSiteSettings } from '../../contexts/SiteSettingsContext';
 
-const Login = () => {
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { login } = useAuth();
+  const { settings } = useSiteSettings();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = async event => {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
+
     try {
-      setError('');
-      setLoading(true);
       await login({ email, password });
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to login');
+      const errors = err.response?.data?.errors;
+      const validationMessage = errors ? Object.values(errors).flat().join(' ') : '';
+      setError(err.response?.data?.message || validationMessage || 'Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:60px_60px]" />
-      
-      <div className="relative bg-white/5 backdrop-blur-2xl p-10 rounded-3xl shadow-2xl w-full max-w-md border border-white/10">
-        
-        {/* Logo/Header */}
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
-            Login
-          </h2>
-        </div>
+    <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,#0f2137_0%,#123352_48%,#0f766e_100%)]">
+      <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
+      <div className="absolute right-0 top-16 h-72 w-[42rem] -skew-x-12 bg-white/10" />
+      <div className="absolute bottom-0 left-0 h-52 w-[34rem] skew-x-12 bg-teal-300/10" />
 
-        {/* Error Message */}
-        {error && (
-          <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 mb-6 backdrop-blur-sm">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">!</span>
-                </div>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-red-200">{error}</p>
-              </div>
+      <div className="relative mx-auto grid min-h-screen w-full max-w-[1220px] items-center gap-10 px-5 py-10 lg:grid-cols-[1fr_500px] lg:px-8">
+        <section className="hidden text-white lg:block">
+          <div className="flex items-center gap-4">
+            <BrandMark settings={settings} size="medium" />
+            <div>
+              <h1 className="text-5xl font-black leading-tight">{settings.site_name || 'PeopleOS'}</h1>
             </div>
           </div>
-        )}
+          <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-cyan-50/75">
+            {settings.tagline || 'Human resource management'} for secure workforce operations, payroll, attendance and employee services.
+          </p>
+          <div className="mt-10 grid max-w-2xl gap-4 sm:grid-cols-3">
+            <Feature label="Secure access" />
+            <Feature label="BD HR ready" />
+            <Feature label="Admin controlled" />
+          </div>
+        </section>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          
-          {/* Email Field */}
-          <fieldset className="relative border-2 border-white/10 rounded-xl px-4 pt-4 pb-3 focus-within:border-blue-500/50 transition-all duration-300 bg-white/5 backdrop-blur-sm">
-            <legend className="absolute text-sm font-medium text-gray-300 -top-2.5 left-3 px-2 bg-slate-900/80 backdrop-blur-sm">
-              Email Address
-            </legend>
-            <input
-              id="email"
+        <section className="mx-auto w-full max-w-[500px] overflow-hidden  shadow-[0_36px_100px_rgba(2,6,23,0.38),0_8px_0_rgba(15,33,55,0.10)] backdrop-blur">
+          <form onSubmit={handleSubmit} className="space-y-7 p-10">
+            {error && <Alert message={error} />}
+
+            <div>
+              <h2 className="text-2xl text-center font-black text-slate-100">Welcome back</h2>
+            </div>
+
+            <FloatingField
+              icon={EnvelopeIcon}
+              label="Email address"
+              placeholder="name@company.com"
               type="email"
-              required
-              className="block w-full text-white placeholder-gray-400 focus:outline-none bg-transparent text-lg font-medium"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={setEmail}
+              autoComplete="email"
             />
-          </fieldset>
 
-          {/* Password Field */}
-          <fieldset className="relative border-2 border-white/10 rounded-xl px-4 pt-4 pb-3 focus-within:border-blue-500/50 transition-all duration-300 bg-white/5 backdrop-blur-sm">
-            <legend className="absolute text-sm font-medium text-gray-300 -top-2.5 left-3 px-2 bg-slate-900/80 backdrop-blur-sm">
-              Password
-            </legend>
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              required
-              className="block w-full text-white placeholder-gray-400 focus:outline-none bg-transparent text-lg font-medium pr-12"
+            <FloatingField
+              icon={LockClosedIcon}
+              label="Password"
+              placeholder="Enter your password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors duration-200"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? (
-                <EyeSlashIcon className="h-5 w-5" />
-              ) : (
-                <EyeIcon className="h-5 w-5" />
+              onChange={setPassword}
+              autoComplete="current-password"
+              rightAction={(
+                <button type="button" onClick={() => setShowPassword(value => !value)} className="flex h-9 w-9 items-center justify-center rounded-[7px] text-slate-500">
+                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                </button>
               )}
-            </button>
-          </fieldset>
+            />
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 px-6 font-semibold text-white rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-blue-500/30 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none group relative overflow-hidden"
-          >
-            <span className="relative z-10 flex items-center justify-center">
+            <button
+              type="submit"
+              disabled={loading}
+              aria-busy={loading}
+              className="group relative inline-flex py-4 w-full items-center justify-center gap-2 overflow-hidden bg-teal-600 px-5 text-sm font-black text-white shadow-[0_14px_26px_rgba(15,118,110,0.25)] hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-teal-700 disabled:shadow-[0_10px_22px_rgba(15,118,110,0.18)]"
+            >
+              <span className="absolute inset-x-0 top-0 h-px bg-white/45" />
               {loading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
+                  <span className="inline-loader text-teal-700" />
                   Signing in...
                 </>
               ) : (
                 <>
-                  <span>Sign In</span>
-                  {/* <svg className="w-5 h-5 ml-3 transform group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg> */}
+                  Sign In
+                  <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          </button>
-        </form>
-
+            </button>
+          </form>
+        </section>
       </div>
+    </main>
+  );
+}
 
-      {/* Floating Elements */}
-      <div className="absolute top-1/4 left-1/4 w-4 h-4 bg-blue-500/30 rounded-full blur-xl animate-pulse"></div>
-      <div className="absolute bottom-1/3 right-1/4 w-6 h-6 bg-purple-500/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+function BrandMark({ settings, size = 'normal' }) {
+  const dimension = size === 'large' ? 'h-20 w-20 text-xl' : 'h-14 w-14 text-sm';
+  return (
+    <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-teal-400 font-black text-[#0f2137] shadow-[0_14px_28px_rgba(20,184,166,0.28)] ${dimension}`}>
+      {settings.logo_url ? <img src={settings.logo_url} alt={settings.site_name} className="h-full w-full object-cover" /> : settings.short_name || 'HR'}
     </div>
   );
-};
+}
 
-export default Login;
+function Feature({ label }) {
+  return (
+    <div className="flex items-center gap-2 border border-white/75 bg-white/10 px-4 py-3 text-sm font-bold text-cyan-50/85">
+      <CheckCircleIcon className="h-5 w-5 flex-shrink-0 text-teal-300" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function FloatingField({ icon: Icon, label, placeholder, value, onChange, rightAction, ...props }) {
+  const [focused, setFocused] = useState(false);
+  const active = focused || Boolean(value);
+
+  return (
+    <fieldset className={`relative border bg-slate-50 px-3 py-1 transition-all duration-200 ${focused ? 'border-teal-400 bg-white shadow-[0_14px_28px_rgba(15,118,110,0.10)] ring-4 ring-teal-100' : 'border-slate-200 hover:border-slate-300'}`}>
+      <span className={`pointer-events-none absolute z-10 bg-slate-50 px-2 font-black transition-all duration-200 ${active ? '-top-2.5 left-4 text-[12px] uppercase tracking-normal text-teal-700' : 'left-12 top-1/2 -translate-y-1/2 text-md text-slate-400'}`}>
+        {label}
+      </span>
+      <div className="relative flex h-12 items-center">
+        {React.createElement(Icon, { className: `pointer-events-none h-5 w-5 shrink-0 transition-colors ${focused ? 'text-teal-600' : 'text-slate-400'}` })}
+        <input
+          required
+          value={value}
+          onChange={event => onChange(event.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={active ? placeholder : ''}
+          className={`min-w-0 flex-1 bg-transparent pl-2 text-[15px] font-bold text-slate-900 outline-none placeholder:text-slate-400 ${rightAction ? 'pr-1' : 'pr-1'}`}
+          {...props}
+        />
+        {rightAction}
+      </div>
+    </fieldset>
+  );
+}
+
+function Alert({ type = 'error', message }) {
+  return <ToastAlert type={type} message={message} />;
+}

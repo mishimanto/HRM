@@ -1,175 +1,166 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { toast } from '../../utils/toast';
+import {
+  ArrowRightIcon,
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  DocumentIcon,
+  ExclamationTriangleIcon,
+  PencilSquareIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline';
+
+const statusStyles = {
+  completed: 'border-teal-200 bg-teal-50 text-teal-800',
+  in_progress: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+  review: 'border-amber-200 bg-amber-50 text-amber-800',
+  cancelled: 'border-rose-200 bg-rose-50 text-rose-800',
+  pending: 'border-slate-200 bg-slate-100 text-slate-700',
+};
+
+const priorityStyles = {
+  urgent: 'border-rose-200 bg-rose-50 text-rose-800',
+  high: 'border-amber-200 bg-amber-50 text-amber-800',
+  medium: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+  low: 'border-teal-200 bg-teal-50 text-teal-800',
+};
 
 const TaskCard = ({ task, onUpdate }) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const { user } = useAuth();
 
-  const isAssignedEmployee = user?.employee?.id === task.assigned_to;
-  const canUpdateProgress = isAssignedEmployee && user?.role_id === 4;
+  const assignedToId = typeof task.assigned_to === 'object' ? task.assigned_to?.id : task.assigned_to;
+  const assignedUser = typeof task.assigned_to === 'object' ? task.assigned_to?.user : task.assigned_to_user;
+  const assignedName = assignedUser?.name || task.assigned_to?.name || 'Unassigned';
+  const canUpdateProgress = user?.employee?.id === assignedToId && user?.role_id === 4;
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
+  const progress = Number(task.progress || 0);
+  const canEditTask = [1, 2, 3].includes(user?.role_id);
 
-  const handleProgressChange = async (newProgress) => {
+  const handleProgressChange = async newProgress => {
     try {
-      if (user?.role_id !== 4) {
-        alert('Only assigned employees can update progress');
+      if (!canUpdateProgress) {
+        toast.error('Only assigned employees can update progress');
         return;
       }
-      
-      if (!isAssignedEmployee) {
-        alert('You can only update progress for tasks assigned to you');
-        return;
-      }
-      
+
       setIsUpdating(true);
       await onUpdate(task.id, { progress: newProgress });
     } catch (error) {
       console.error('Error updating task progress:', error);
-      alert('Error updating task progress');
+      toast.error('Error updating task progress');
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return 'bg-green-50 text-green-700 border-green-200';
-      case 'in_progress': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'review': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      case 'cancelled': return 'bg-red-50 text-red-700 border-red-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'urgent': return 'text-red-600 bg-red-50';
-      case 'high': return 'text-orange-600 bg-orange-50';
-      case 'medium': return 'text-blue-600 bg-blue-50';
-      default: return 'text-green-600 bg-green-50';
-    }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   return (
-    <div className={`bg-white rounded-xl border ${
-      isOverdue ? 'border-red-200 bg-red-50' : 'border-gray-200'
-    } hover:border-blue-300 hover:shadow-2xl shadow-lg transition-all duration-300 p-5`}>
-      
-      {/* Header with Title and Status */}
-      <div className="flex justify-between items-start gap-3 mb-4">
-        <Link 
-          to={`/tasks/${task.id}`}
-          className="text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2 flex-1"
-        >
-          {task.title}
-        </Link>
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(task.status)}`}>
-            {task.status === 'in_progress' ? 'In Progress' : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-          </span>
-          <span className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(task.priority)}`}>
-            {task.priority}
-          </span>
+    <div className={`relative overflow-hidden rounded-[8px] border bg-white/90 p-5 shadow-[0_18px_44px_rgba(15,23,42,0.09)] transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl ${isOverdue ? 'border-rose-200' : 'border-white/70'}`}>
+      <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${isOverdue ? 'from-rose-500 via-pink-400 to-amber-300' : 'from-teal-500 via-cyan-400 to-amber-300'}`} />
+      <div className={`absolute bottom-0 right-0 h-20 w-28 -skew-x-12 ${isOverdue ? 'bg-rose-700/10' : 'bg-teal-700/10'}`} />
+
+      <div className="relative space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <Link to={`/tasks/${task.id}`} className="line-clamp-2 text-lg font-black text-slate-950 hover:text-teal-700">
+            {task.title}
+          </Link>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <Badge style={statusStyles[task.status]}>{task.status || 'pending'}</Badge>
+            <Badge style={priorityStyles[task.priority]}>{task.priority || 'medium'}</Badge>
+          </div>
         </div>
-      </div>
 
-      {/* Description */}
-      <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
-        {task.description || 'No description provided for this task.'}
-      </p>
+        <p className="line-clamp-2 text-sm font-medium leading-6 text-slate-500">
+          {task.description || 'No description provided for this task.'}
+        </p>
 
-      {/* Meta Information Row */}
-      <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-              {task.assigned_to?.user?.name?.charAt(0) || 'U'}
+        <div className="grid gap-3 border-y border-slate-100 py-4 sm:grid-cols-2">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[8px] bg-teal-600 shadow-[0_12px_22px_rgba(15,118,110,0.25)]">
+              <UserCircleIcon className="h-6 w-6 text-white" />
             </div>
-            <div>
-              <p className="font-semibold text-gray-900">{task.assigned_to?.user?.name}</p>
-              <p className="text-xs text-gray-500">{task.department?.name}</p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-slate-900">{assignedName}</p>
+              <p className="mt-1 truncate text-xs font-medium text-slate-500">{task.department?.name || 'No department'}</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-3 sm:justify-end ${isOverdue ? 'text-rose-700' : 'text-slate-600'}`}>
+            {isOverdue ? <ExclamationTriangleIcon className="h-5 w-5" /> : <CalendarDaysIcon className="h-5 w-5" />}
+            <div className="text-right">
+              <p className="text-sm font-black">{formatDate(task.due_date)}</p>
+              <p className="text-xs font-bold">{isOverdue ? 'Overdue' : 'Due date'}</p>
             </div>
           </div>
         </div>
-        
-        <div className={`text-right ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
-          <p className="font-semibold">{formatDate(task.due_date)}</p>
-          <p className="text-xs">{isOverdue ? 'Overdue' : 'Due date'}</p>
-        </div>
-      </div>
 
-      {/* Attachment Indicator */}
-      {task.attachment_path && (
-        <div className="flex items-center gap-2 text-sm text-blue-600 mb-4 p-2 bg-blue-50 rounded-lg">
-          <span className="text-lg">📎</span>
-          <span className="font-medium">File attached</span>
-          <span className="text-gray-400 ml-auto text-xs bg-white px-2 py-1 rounded">
-            {task.attachment_path.split('.').pop()?.toUpperCase()}
-          </span>
-        </div>
-      )}
-
-      {/* Progress Section */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-semibold text-gray-700">Task Progress</span>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-gray-900">{task.progress}%</span>
-            {!canUpdateProgress && user?.role_id !== 4 && (
-              <span className="text-gray-400 text-sm" title="Only assigned employee can update progress">
-                🔒
-              </span>
-            )}
-          </div>
-        </div>
-        
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-3">
-          <div 
-            className={`h-3 rounded-full transition-all duration-500 ${
-              task.progress === 100 ? 'bg-green-500' :
-              task.progress >= 75 ? 'bg-blue-500' :
-              task.progress >= 50 ? 'bg-yellow-500' :
-              'bg-orange-500'
-            }`}
-            style={{ width: `${task.progress}%` }}
-          ></div>
-        </div>
-
-        {/* Quick Progress Actions */}
-        {canUpdateProgress && (
-          <div className="grid grid-cols-4 gap-2 pt-2">
-            {[25, 50, 75, 100].map(progress => (
-              <button
-                key={progress}
-                onClick={() => handleProgressChange(progress)}
-                disabled={isUpdating}
-                className="px-2 py-2 text-sm font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all duration-200 border border-gray-300 hover:border-gray-400 hover:scale-105"
-              >
-                {progress}%
-              </button>
-            ))}
+        {task.attachment_path && (
+          <div className="flex items-center gap-3 border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">
+            <DocumentIcon className="h-5 w-5" />
+            <span>File attached</span>
+            <span className="ml-auto bg-white px-2 py-1 text-xs text-indigo-700 shadow-sm">{task.attachment_path.split('.').pop()?.toUpperCase()}</span>
           </div>
         )}
-      </div>
 
-      {/* View Details Link */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <Link 
-          to={`/tasks/${task.id}`}
-          className="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-        >
-          View Details
-        </Link>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm font-bold text-slate-700">
+              <ClockIcon className="h-4 w-4 text-teal-700" />
+              Task Progress
+            </span>
+            <span className="text-lg font-black text-slate-950">{progress}%</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full rounded-full bg-gradient-to-r from-teal-500 via-cyan-400 to-amber-300 transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+
+          {canUpdateProgress && (
+            <div className="grid grid-cols-4 gap-2 pt-1">
+              {[25, 50, 75, 100].map(value => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => handleProgressChange(value)}
+                  disabled={isUpdating}
+                  className="bg-slate-100 px-2 py-2 text-sm font-black text-slate-700 hover:bg-teal-50 hover:text-teal-800 disabled:opacity-50"
+                >
+                  {value}%
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end border-t border-slate-100 pt-4">
+          {canEditTask && (
+            <Link to={`/tasks/${task.id}/edit`} className="mr-2 inline-flex items-center gap-2 bg-slate-100 px-3 py-2 text-sm font-black text-slate-700 hover:bg-slate-200">
+              <PencilSquareIcon className="h-4 w-4" />
+              Edit
+            </Link>
+          )}
+          <Link to={`/tasks/${task.id}`} className="inline-flex items-center gap-2 bg-teal-600 px-3 py-2 text-sm font-black text-white shadow-[0_12px_22px_rgba(15,118,110,0.22)] hover:bg-teal-700">
+            View Details
+            <ArrowRightIcon className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     </div>
   );
 };
+
+function Badge({ children, style }) {
+  return (
+    <span className={`inline-flex border px-2.5 py-1 text-xs font-bold capitalize shadow-sm ${style || 'border-slate-200 bg-slate-100 text-slate-700'}`}>
+      {String(children).replace('_', ' ')}
+    </span>
+  );
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Not set';
+  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default TaskCard;

@@ -1,79 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import SharedStatCard from '../UI/StatCard';
 import api from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+  CheckCircleIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  RocketLaunchIcon,
+} from '@heroicons/react/24/outline';
+
+const normalizeRows = response => response.data?.data || response.data || [];
 
 const TaskStats = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
     in_progress: 0,
-    review: 0,
     completed: 0,
-    overdue: 0
+    overdue: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const { user } = useAuth();
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
-      
-      // Fetch all tasks and calculate stats on frontend
-      let tasks = [];
-      
-      // Use appropriate endpoint based on user role
-      if (user?.role_id === 4) { // Employee
-        const response = await api.get('/my-tasks');
-        tasks = response.data.data || response.data;
-      } else { // Admin/HR/Manager
-        const response = await api.get('/tasks');
-        tasks = response.data.data || response.data;
-      }
-      
+      setError('');
+
+      const response = user?.role_id === 4 ? await api.get('/my-tasks') : await api.get('/tasks');
+      const tasks = normalizeRows(response);
       const now = new Date();
-      const calculatedStats = {
+
+      setStats({
         total: tasks.length,
         pending: tasks.filter(task => task.status === 'pending').length,
         in_progress: tasks.filter(task => task.status === 'in_progress').length,
-        review: tasks.filter(task => task.status === 'review').length,
         completed: tasks.filter(task => task.status === 'completed').length,
-        overdue: tasks.filter(task => {
-          if (!task.due_date) return false;
-          const dueDate = new Date(task.due_date);
-          return dueDate < now && !['completed', 'cancelled'].includes(task.status);
-        }).length,
-      };
-      
-      setStats(calculatedStats);
-      
-    } catch (error) {
-      console.error('Error fetching task stats:', error);
-      setError('Failed to load task statistics');
-      // Set default empty stats
-      setStats({
-        total: 0,
-        pending: 0,
-        in_progress: 0,
-        review: 0,
-        completed: 0,
-        overdue: 0
+        overdue: tasks.filter(task => task.due_date && new Date(task.due_date) < now && !['completed', 'cancelled'].includes(task.status)).length,
       });
+    } catch (err) {
+      console.error('Error fetching task stats:', err);
+      setError('Failed to load task statistics');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.role_id]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="bg-gray-200 rounded-lg p-4 animate-pulse h-20"></div>
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+        {[...Array(5)].map((_, index) => (
+          <div key={index} className="h-[150px] animate-pulse rounded-[8px] border border-slate-200 bg-white/70" />
         ))}
       </div>
     );
@@ -81,88 +64,31 @@ const TaskStats = () => {
 
   if (error) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <div className="flex items-center">
-          <div className="text-yellow-600 mr-3">⚠️</div>
-          <div>
-            <p className="text-yellow-800 font-medium">{error}</p>
-            <button
-              onClick={fetchStats}
-              className="text-yellow-700 underline text-sm mt-1 hover:text-yellow-800"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+      <div className="flex items-center justify-between gap-3 border-l-4 border-amber-500 bg-amber-50 p-4 text-sm font-bold text-amber-800 shadow-lg">
+        <span className="flex items-center gap-3">
+          <ExclamationTriangleIcon className="h-5 w-5" />
+          {error}
+        </span>
+        <button onClick={fetchStats} className="bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 hover:bg-amber-400">
+          Retry
+        </button>
       </div>
     );
   }
 
-  const statCards = [
-    {
-      label: 'Total Tasks',
-      value: stats.total,
-      color: 'border-blue-500',
-      bgColor: 'bg-blue-50',
-      icon: '📋',
-      description: 'All tasks'
-    },
-    {
-      label: 'Pending',
-      value: stats.pending,
-      color: 'border-yellow-500',
-      bgColor: 'bg-yellow-50',
-      icon: '⏳',
-      description: 'Waiting to start'
-    },
-    {
-      label: 'In Progress',
-      value: stats.in_progress,
-      color: 'border-purple-500',
-      bgColor: 'bg-purple-50',
-      icon: '🚀',
-      description: 'Currently working'
-    },
-    {
-      label: 'Completed',
-      value: stats.completed,
-      color: 'border-green-500',
-      bgColor: 'bg-green-50',
-      icon: '✅',
-      description: 'Finished tasks'
-    },
-    {
-      label: 'Overdue',
-      value: stats.overdue,
-      color: 'border-red-500',
-      bgColor: 'bg-red-50',
-      icon: '⚠️',
-      description: 'Past due date'
-    }
-  ];
-
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-      {statCards.map((stat, index) => (
-        <div 
-          key={index} 
-          className={`rounded-lg shadow p-4 border-l-4 ${stat.color} ${stat.bgColor} hover:shadow-md transition-shadow cursor-default`}
-          title={stat.description}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-            </div>
-            <span className="text-2xl" role="img" aria-label={stat.label}>{stat.icon}</span>
-          </div>
-          {stat.description && (
-            <p className="text-xs text-gray-500 mt-2">{stat.description}</p>
-          )}
-        </div>
-      ))}
+    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+      <SummaryCard label="Total Tasks" value={stats.total} icon={ClipboardDocumentListIcon} theme="teal" />
+      <SummaryCard label="Pending" value={stats.pending} icon={ClockIcon} theme="amber" />
+      <SummaryCard label="In Progress" value={stats.in_progress} icon={RocketLaunchIcon} theme="indigo" />
+      <SummaryCard label="Completed" value={stats.completed} icon={CheckCircleIcon} theme="teal" />
+      <SummaryCard label="Overdue" value={stats.overdue} icon={ExclamationTriangleIcon} theme="rose" />
     </div>
   );
 };
+
+function SummaryCard(props) {
+  return <SharedStatCard {...props} />;
+}
 
 export default TaskStats;

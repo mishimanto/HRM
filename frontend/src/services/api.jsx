@@ -26,7 +26,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || '';
+    const isLoginRequest = requestUrl.endsWith('/login') || requestUrl === 'login';
+    const isAlreadyOnLogin = window.location.pathname === '/login';
+
+    if (error.response?.status === 401 && !isLoginRequest && !isAlreadyOnLogin) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
       window.location.href = '/login';

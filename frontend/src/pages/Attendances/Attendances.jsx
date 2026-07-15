@@ -1,553 +1,321 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ToastAlert from '../../components/UI/ToastAlert';
+import SharedStatCard from '../../components/UI/StatCard';
 import { attendanceService } from '../../services/attendanceService';
 import { employeeService } from '../../services/employeeService';
 import { useAuth } from '../../contexts/AuthContext';
-import { 
-  CalendarIcon, 
-  CheckCircleIcon, 
-  XCircleIcon, 
+import {
+  CalendarIcon,
+  CheckCircleIcon,
   ClockIcon,
+  ExclamationTriangleIcon,
   UserCircleIcon,
-  ExclamationTriangleIcon
+  UserGroupIcon,
+  XCircleIcon,
 } from '@heroicons/react/24/outline';
 
-const Attendances = () => {
+const statusStyles = {
+  present: 'border-teal-200 bg-teal-50 text-teal-800',
+  absent: 'border-rose-200 bg-rose-50 text-rose-800',
+  late: 'border-amber-200 bg-amber-50 text-amber-800',
+  half_day: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+  holiday: 'border-slate-200 bg-slate-100 text-slate-700',
+};
+
+const today = () => new Date().toISOString().split('T')[0];
+
+export default function Attendances() {
+  const { user } = useAuth();
   const [attendances, setAttendances] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(today());
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const { user } = useAuth();
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-  // Check if selected date is today
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === today();
+  const isPrivilegedUser = useCallback(() => [1, 2, 3].includes(user?.role_id), [user?.role_id]);
+  const isCurrentUser = useCallback(employee => employee.user_id === user?.id, [user?.id]);
+  const canPerformAction = useCallback(employee => isPrivilegedUser() || isCurrentUser(employee), [isPrivilegedUser, isCurrentUser]);
+
+  const fetchAttendances = useCallback(async () => {
+    setError('');
+    try {
+      const response = await attendanceService.getAll({ date: selectedDate });
+      setAttendances(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching attendances:', err);
+      setError(err.response?.data?.message || 'Failed to fetch attendances');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate]);
+
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await employeeService.getAll();
+      setEmployees(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      setError(err.response?.data?.message || 'Failed to fetch employees');
+    }
+  }, []);
 
   useEffect(() => {
     fetchAttendances();
     fetchEmployees();
-  }, [selectedDate]);
+  }, [fetchAttendances, fetchEmployees]);
 
-  const fetchAttendances = async () => {
+  const handleCheckIn = async employeeId => {
+    setMessage('');
+    setError('');
     try {
-      const response = await attendanceService.getAll({ date: selectedDate });
-      setAttendances(response.data.data);
-    } catch (error) {
-      console.error('Error fetching attendances:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEmployees = async () => {
-    try {
-      const response = await employeeService.getAll();
-      setEmployees(response.data.data);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-    }
-  };
-
-  const handleCheckIn = async (employeeId) => {
-    try {
-      await attendanceService.checkIn({ employee_id: employeeId });
+      const response = await attendanceService.checkIn({ employee_id: employeeId });
+      setMessage(response.data.message || 'Checked in successfully');
       fetchAttendances();
-    } catch (error) {
-      console.error('Error checking in:', error);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Check-in failed');
     }
   };
 
-  const handleCheckOut = async (employeeId) => {
+  const handleCheckOut = async employeeId => {
+    setMessage('');
+    setError('');
     try {
-      console.log('Attempting check-out for employee:', employeeId);
-      await attendanceService.checkOut({ employee_id: employeeId });
-      console.log('Check-out successful');
+      const response = await attendanceService.checkOut({ employee_id: employeeId });
+      setMessage(response.data.message || 'Checked out successfully');
       fetchAttendances();
-    } catch (error) {
-      console.error('Error checking out:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      
-      if (error.response?.status === 422) {
-        alert('No check-in found for today. Please check in first.');
-      } else if (error.response?.status === 500) {
-        alert('Server error. Please try again or contact support.');
-      } else {
-        alert('Error checking out. Please try again.');
-      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Check-out failed');
     }
   };
 
-  // Time format function
-  const formatTime = (timeString) => {
-    if (!timeString) return '-';
-    
-    try {
-      if (timeString.includes('T')) {
-        const date = new Date(timeString);
-        return date.toLocaleTimeString('en-BD', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: true 
-        });
-      }
-      
-      if (timeString.split(':').length === 3) {
-        const [hours, minutes] = timeString.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour % 12 || 12;
-        return `${displayHour}:${minutes} ${ampm}`;
-      }
-      
-      if (timeString.split(':').length === 2) {
-        const [hours, minutes] = timeString.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour % 12 || 12;
-        return `${displayHour}:${minutes} ${ampm}`;
-      }
-      
-      return timeString;
-    } catch (error) {
-      console.error('Error formatting time:', error);
-      return timeString;
-    }
-  };
+  const filteredEmployees = useMemo(() => (
+    isPrivilegedUser() ? employees : employees.filter(employee => isCurrentUser(employee))
+  ), [employees, isPrivilegedUser, isCurrentUser]);
 
-  // Format total hours properly
-  const formatTotalHours = (totalHours) => {
-    if (!totalHours && totalHours !== 0) return '-';
-    
-    if (totalHours < 0) {
-      return 'Invalid';
-    }
-    
-    const totalMinutes = totalHours * 60;
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = Math.round(totalMinutes % 60);
-    
-    if (hours === 0 && minutes === 0) {
-      return '0 hrs';
-    } else if (hours === 0) {
-      return `${minutes}m`;
-    } else if (minutes === 0) {
-      return `${hours} hrs`;
-    } else {
-      return `${hours}h ${minutes}m`;
-    }
-  };
+  const attendanceByEmployee = useMemo(() => {
+    const map = new Map();
+    attendances.forEach(attendance => map.set(attendance.employee_id, attendance));
+    return map;
+  }, [attendances]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'present': return 'text-green-600 bg-green-100';
-      case 'absent': return 'text-red-600 bg-red-100';
-      case 'late': return 'text-yellow-600 bg-yellow-100';
-      case 'half_day': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
+  const summary = {
+    online: attendances.filter(item => item.check_in && !item.check_out).length,
+    present: attendances.filter(item => item.status === 'present').length,
+    late: attendances.filter(item => item.status === 'late').length,
+    absent: attendances.filter(item => item.status === 'absent').length,
   };
-
-  // Check if current employee is the logged in user
-  const isCurrentUser = (employee) => {
-    return employee.user_id === user.id;
-  };
-
-  // Check if user has admin/manager/hr privileges
-  const isPrivilegedUser = () => {
-    const privilegedRoles = [1, 2, 3];
-    return privilegedRoles.includes(user.role_id);
-  };
-
-  // Check if user can perform actions for this employee
-  const canPerformAction = (employee) => {
-    return isPrivilegedUser() || isCurrentUser(employee);
-  };
-
-  // ✅ NEW: Check if check-in is allowed for this date
-  const canCheckInToday = () => {
-    return isToday;
-  };
-
-  // Get online status indicator
-  const getOnlineStatus = (attendance) => {
-    if (attendance?.check_in && !attendance?.check_out) {
-      return {
-        online: true,
-        tooltip: `Checked in at ${formatTime(attendance.check_in)}`
-      };
-    }
-    return {
-      online: false,
-      tooltip: attendance?.check_out ? `Checked out at ${formatTime(attendance.check_out)}` : 'Not checked in'
-    };
-  };
-
-  // Filter employees based on user role
-  const getFilteredEmployees = () => {
-    if (isPrivilegedUser()) {
-      return employees;
-    } else {
-      return employees.filter(employee => isCurrentUser(employee));
-    }
-  };
-
-  const filteredEmployees = getFilteredEmployees();
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex min-h-96 items-center justify-center">
+        <div className="text-center">
+          <div className="professional-loader mx-auto" />
+          <p className="mt-3 text-sm font-medium text-slate-500">Loading attendance...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          {/* <h1 className="text-2xl font-bold text-gray-900">Attendance Management</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {isPrivilegedUser() ? 'Manage all employee attendance' : 'View and manage your attendance'}
-            <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-              Time Format: 12-hour (AM/PM)
-            </span>
-          </p> */}
-        </div>
-        <div className="flex items-center space-x-4">
-          {isPrivilegedUser() && (
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
-                <span>Online</span>
+      <section className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
+        <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-black">Attendance</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {isPrivilegedUser() && (
+              <div className="hidden items-center gap-3 border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-cyan-50/85 sm:flex">
+                <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Online</span>
+                <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Offline</span>
               </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-gray-300 rounded-full mr-1"></div>
-                <span>Offline</span>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center space-x-2">
+            )}
             <input
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              onChange={event => setSelectedDate(event.target.value)}
+              className="h-11 border border-white/20 bg-white/10 px-3 text-sm font-bold text-white outline-none [color-scheme:dark] focus:border-teal-300 focus:ring-4 focus:ring-teal-300/20"
             />
-            {/* {!isToday && (
-              <div className="flex items-center text-amber-600 text-sm">
-                <ExclamationTriangleIcon className="h-4 w-4 mr-1" />
-                <span>View Only Mode</span>
-              </div>
-            )} */}
           </div>
         </div>
-      </div>
+        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-teal-400 via-amber-300 to-rose-400" />
+      </section>
 
-      {/* Date Warning Banner */}
+      {message && <Alert type="success" message={message} />}
+      {error && <Alert type="error" message={error} />}
       {!isToday && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 mr-2" />
-            <div>
-              <h3 className="text-sm font-medium text-amber-800">
-                Viewing Date: {selectedDate}
-              </h3>
-              <p className="text-sm text-amber-700 mt-1">
-                You are viewing attendance records for a past/future date. Check-in/Check-out operations are only available for today ({new Date().toLocaleDateString()}).
-              </p>
-            </div>
-          </div>
-        </div>
+        <Alert
+          type="warning"
+          message={`Viewing ${selectedDate}. Check-in/check-out actions are only available for today (${new Date().toLocaleDateString()}).`}
+        />
       )}
 
-      {/* Real-time Status Overview - শুধুমাত্র privileged users এবং today এর জন্য */}
-      {/* {isPrivilegedUser() && isToday && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white shadow rounded-lg p-4 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Currently Online</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {attendances.filter(a => a.check_in && !a.check_out).length}
-                </p>
-              </div>
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-          
-          <div className="bg-white shadow rounded-lg p-4 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completed Today</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {attendances.filter(a => a.check_in && a.check_out).length}
-                </p>
-              </div>
-              <CheckCircleIcon className="h-6 w-6 text-blue-500" />
-            </div>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-4 border-l-4 border-yellow-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending Check-in</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {employees.length - attendances.filter(a => a.check_in).length}
-                </p>
-              </div>
-              <ClockIcon className="h-6 w-6 text-yellow-500" />
-            </div>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-4 border-l-4 border-red-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Absent</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {attendances.filter(a => a.status === 'absent').length}
-                </p>
-              </div>
-              <XCircleIcon className="h-6 w-6 text-red-500" />
-            </div>
-          </div>
-        </div>
-      )} */}
-
-      {/* Attendance Summary - শুধুমাত্র privileged users এর জন্য */}
       {isPrivilegedUser() && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">
-            {isToday ? "Today's Summary" : `Attendance Summary - ${selectedDate}`}
-          </h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-              <div className="text-2xl font-bold text-green-600">
-                {attendances.filter(a => a.status === 'present').length}
-              </div>
-              <div className="text-sm text-green-800">Present</div>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-              <div className="text-2xl font-bold text-red-600">
-                {attendances.filter(a => a.status === 'absent').length}
-              </div>
-              <div className="text-sm text-red-800">Absent</div>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <div className="text-2xl font-bold text-yellow-600">
-                {attendances.filter(a => a.status === 'late').length}
-              </div>
-              <div className="text-sm text-yellow-800">Late</div>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <div className="text-2xl font-bold text-blue-600">
-                {attendances.filter(a => a.status === 'half_day').length}
-              </div>
-              <div className="text-sm text-blue-800">Half Day</div>
-            </div>
-          </div>
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard label="Online Now" value={summary.online} icon={ClockIcon} theme="teal" />
+          <SummaryCard label="Present" value={summary.present} icon={CheckCircleIcon} theme="indigo" />
+          <SummaryCard label="Late" value={summary.late} icon={ExclamationTriangleIcon} theme="amber" />
+          <SummaryCard label="Absent" value={summary.absent} icon={XCircleIcon} theme="rose" />
         </div>
       )}
 
-      {/* Attendance Table */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {isPrivilegedUser() && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-              )}
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Employee
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Check In
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Check Out
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total Hours
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredEmployees.map((employee) => {
-              const attendance = attendances.find(a => a.employee_id === employee.id);
-              const onlineStatus = getOnlineStatus(attendance);
-              
-              return (
-                <tr key={employee.id} className="hover:bg-gray-50">
-                  {/* Online Status Indicator - শুধুমাত্র privileged users এর জন্য */}
-                  {isPrivilegedUser() && (
+      <section className="overflow-hidden rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
+        <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">{isToday ? "Today's Attendance" : `Attendance - ${selectedDate}`}</h2>
+
+          </div>
+          <span className="w-fit border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
+            {filteredEmployees.length} employees
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/90">
+              <tr>
+                {isPrivilegedUser() && <HeadCell>Status</HeadCell>}
+                <HeadCell>Employee</HeadCell>
+                <HeadCell>Check In</HeadCell>
+                <HeadCell>Check Out</HeadCell>
+                <HeadCell>Total Hours</HeadCell>
+                <HeadCell>Mark</HeadCell>
+                <HeadCell>Actions</HeadCell>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white/80">
+              {filteredEmployees.map(employee => {
+                const attendance = attendanceByEmployee.get(employee.id);
+                const online = Boolean(attendance?.check_in && !attendance?.check_out);
+                return (
+                  <tr key={employee.id} className="transition hover:bg-teal-50/40">
+                    {isPrivilegedUser() && (
+                      <td className="px-6 py-4 flex justify-center">
+                        <span className={`block h-3 w-3 rounded-full ring-4 ${online ? 'bg-emerald-500 ring-emerald-100' : 'bg-slate-300 ring-slate-100'}`} title={online ? `Checked in at ${formatTime(attendance.check_in)}` : 'Offline'} />
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="relative flex justify-center">
-                        <div 
-                          className={`
-                            w-3 h-3 rounded-full transition-all duration-300
-                            ${onlineStatus.online 
-                              ? 'bg-green-500 animate-pulse' 
-                              : 'bg-gray-300'
-                            }
-                          `}
-                          title={onlineStatus.tooltip}
-                        ></div>
+                      <div className="flex min-w-[220px] items-center">
+                        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[4px] bg-teal-600 shadow-[0_12px_22px_rgba(15,118,110,0.25)]">
+                          <UserCircleIcon className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-bold text-slate-900">{employee.user?.name || 'N/A'}</p>
+                            {isCurrentUser(employee) && <span className="border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-800">You</span>}
+                          </div>
+                          <p className="mt-1 truncate text-sm text-slate-500">{employee.user?.employee_id || 'N/A'}{employee.department?.name ? ` - ${employee.department.name}` : ''}</p>
+                        </div>
                       </div>
                     </td>
-                  )}
+                    <DataCell primary={formatTime(attendance?.check_in)} secondary={attendance?.check_in ? weekday(selectedDate) : null} />
+                    <DataCell primary={formatTime(attendance?.check_out)} secondary={attendance?.check_out ? weekday(selectedDate) : null} />
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-center text-slate-900">{formatTotalHours(attendance?.total_hours)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center"><StatusBadge status={attendance?.status} /></td>
+                    <td className="px-6 py-4 whitespace-nowrap flex justify-center align-center">
+                      <AttendanceAction
+                        employee={employee}
+                        attendance={attendance}
+                        canPerform={canPerformAction(employee)}
+                        isToday={isToday}
+                        onCheckIn={handleCheckIn}
+                        onCheckOut={handleCheckOut}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                        <UserCircleIcon className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="flex items-center">
-                          <div className="text-sm font-medium text-gray-900">
-                            {employee.user?.name || 'N/A'}
-                          </div>
-                          {isCurrentUser(employee) && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">You</span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center space-x-2">
-                          <span>{employee.user?.employee_id || 'N/A'}</span>
-                          {isPrivilegedUser() && employee.department?.name && (
-                            <>
-                              <span>•</span>
-                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                                {employee.department.name}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 font-medium">
-                      {formatTime(attendance?.check_in)}
-                    </div>
-                    {attendance?.check_in && (
-                      <div className="text-xs text-gray-500">
-                        {new Date(`${selectedDate}T${attendance.check_in}`).toLocaleDateString('en-BD', {
-                          weekday: 'short'
-                        })}
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 font-medium">
-                      {formatTime(attendance?.check_out)}
-                    </div>
-                    {attendance?.check_out && (
-                      <div className="text-xs text-gray-500">
-                        {new Date(`${selectedDate}T${attendance.check_out}`).toLocaleDateString('en-BD', {
-                          weekday: 'short'
-                        })}
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium">
-                      {formatTotalHours(attendance?.total_hours)}
-                    </div>
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full capitalize ${getStatusColor(attendance?.status)}`}>
-                      {attendance?.status || 'Not marked'}
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    {canPerformAction(employee) ? (
-                      <>
-                        {!attendance?.check_in && canCheckInToday() ? (
-                          // ✅ Check In Button - Only show for today
-                          <button
-                            onClick={() => handleCheckIn(employee.id)}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-                          >
-                            <CheckCircleIcon className="h-4 w-4 mr-2" />
-                            Check In
-                          </button>
-                        ) : !attendance?.check_in && !canCheckInToday() ? (
-                          // ❌ Check In Disabled - For past/future dates
-                          <button
-                            disabled
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-400 cursor-not-allowed"
-                            title="Check-in only available for today"
-                          >
-                            <CheckCircleIcon className="h-4 w-4 mr-2" />
-                            Check In
-                          </button>
-                        ) : attendance?.check_in && !attendance?.check_out && canCheckInToday() ? (
-                          // ✅ Check Out Button - Only show for today
-                          <button
-                            onClick={() => handleCheckOut(employee.id)}
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
-                          >
-                            <XCircleIcon className="h-4 w-4 mr-2" />
-                            Check Out
-                          </button>
-                        ) : attendance?.check_in && !attendance?.check_out && !canCheckInToday() ? (
-                          // ❌ Check Out Disabled - For past/future dates
-                          <button
-                            disabled
-                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-400 cursor-not-allowed"
-                            title="Check-out only available for today"
-                          >
-                            <XCircleIcon className="h-4 w-4 mr-2" />
-                            Check Out
-                          </button>
-                        ) : (
-                          // ✅ Completed Status
-                          <div className="flex flex-col space-y-1">
-                            <span className="text-green-600 text-xs font-medium">Completed</span>
-                            <span className="text-gray-400 text-xs">
-                              {formatTotalHours(attendance?.total_hours)}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-gray-400 text-xs">View only</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* Empty state */}
         {filteredEmployees.length === 0 && (
-          <div className="text-center py-12">
-            <UserCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No employees found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {isPrivilegedUser() 
-                ? "No employees are available for attendance tracking." 
-                : "No attendance record found for you."
-              }
-            </p>
+          <div className="p-10 text-center">
+            <UserGroupIcon className="mx-auto h-12 w-12 text-slate-300" />
+            <h3 className="mt-3 text-sm font-bold text-slate-900">No employees found</h3>
+            <p className="mt-1 text-sm text-slate-500">{isPrivilegedUser() ? 'No employees are available for attendance tracking.' : 'No attendance profile is linked to your account.'}</p>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
-};
+}
 
-export default Attendances;
+function HeadCell({ children }) {
+  return <th className="px-6 py-4 text-center text-xs font-bold uppercase text-slate-500 whitespace-nowrap">{children}</th>;
+}
+
+function DataCell({ primary, secondary }) {
+  return (
+    <td className="px-6 py-4 whitespace-nowrap text-center">
+      <p className="text-sm font-bold text-slate-900">{primary}</p>
+      {secondary && <p className="mt-1 text-xs font-medium text-slate-500">{secondary}</p>}
+    </td>
+  );
+}
+
+function StatusBadge({ status }) {
+  const normalized = status || 'not marked';
+  const style = statusStyles[status] || 'border-slate-200 bg-slate-100 text-slate-700';
+  return <span className={`inline-flex border px-2.5 py-1 text-xs font-bold capitalize shadow-sm ${style}`}>{normalized.replace('_', ' ')}</span>;
+}
+
+function AttendanceAction({ employee, attendance, canPerform, isToday, onCheckIn, onCheckOut }) {
+  if (!canPerform) return <span className="text-xs font-bold text-slate-400">View only</span>;
+  if (!isToday) return <span className="border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">View only</span>;
+  if (!attendance?.check_in) {
+    return (
+      <button onClick={() => onCheckIn(employee.id)} className="inline-flex items-center gap-2 bg-teal-600 px-3 py-2 text-sm font-black text-white shadow-[0_12px_22px_rgba(15,118,110,0.22)] hover:bg-teal-700">
+        <CheckCircleIcon className="h-4 w-4" />
+        Check In
+      </button>
+    );
+  }
+  if (!attendance?.check_out) {
+    return (
+      <button onClick={() => onCheckOut(employee.id)} className="inline-flex items-center gap-2 bg-rose-600 px-3 py-2 text-sm font-black text-white shadow-[0_12px_22px_rgba(190,18,60,0.18)] hover:bg-rose-700">
+        <XCircleIcon className="h-4 w-4" />
+        Check Out
+      </button>
+    );
+  }
+  return <span className="border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800">Completed</span>;
+}
+
+function SummaryCard(props) {
+  return <SharedStatCard {...props} />;
+}
+
+function Alert({ type = 'error', message }) {
+  return <ToastAlert type={type} message={message} />;
+}
+
+function formatTime(timeString) {
+  if (!timeString) return '-';
+  if (timeString.includes('T')) {
+    return new Date(timeString).toLocaleTimeString('en-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+  const [hours, minutes] = timeString.split(':');
+  const hour = Number(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  return `${hour % 12 || 12}:${minutes} ${ampm}`;
+}
+
+function formatTotalHours(totalHours) {
+  if (!totalHours && totalHours !== 0) return '-';
+  const totalMinutes = Math.max(0, Number(totalHours) * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = Math.round(totalMinutes % 60);
+  if (hours === 0 && minutes === 0) return '0 hrs';
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours} hrs`;
+  return `${hours}h ${minutes}m`;
+}
+
+function weekday(date) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('en-BD', { weekday: 'short' });
+}

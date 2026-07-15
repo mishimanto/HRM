@@ -23,6 +23,7 @@ use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\SelfServiceController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\SiteSettingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -31,8 +32,9 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 // Public routes
-Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', fn () => response()->json(['message' => 'Registration is disabled.'], 403));
+Route::get('/site-settings', [SiteSettingController::class, 'show']);
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'audit'])->group(function () {
@@ -41,6 +43,7 @@ Route::middleware(['auth:sanctum', 'audit'])->group(function () {
     Route::get('/me', [AuthController::class, 'user']);
     Route::post('/me/update', [AuthController::class, 'updateProfile']);
     Route::post('/me/change-password', [AuthController::class, 'changePassword']);
+    Route::post('/site-settings', [SiteSettingController::class, 'update']);
 
     // User management (Admin/HR only)
     Route::apiResource('users', UserController::class)->except(['create', 'edit'])
@@ -190,6 +193,7 @@ Route::get('/dashboard/stats', [DashboardController::class, 'dashboardStats']);
     Route::get('/approvals', [OperationsController::class, 'approvals']);
     Route::patch('/approvals/{approvalRequest}', [OperationsController::class, 'act']);
     Route::get('/notifications', [OperationsController::class, 'notifications']);
+    Route::post('/notifications/read-all', [OperationsController::class, 'readAllNotifications']);
     Route::post('/notifications/{id}/read', [OperationsController::class, 'readNotification']);
     Route::get('/exports/{type}', [OperationsController::class, 'export'])->middleware('permission:data.manage');
     Route::post('/imports/employees', [OperationsController::class, 'importEmployees'])->middleware('permission:data.manage');

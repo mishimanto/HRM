@@ -5,34 +5,10 @@ export const attendanceService = {
   getById: (id) => api.get(`/attendances/${id}`),
   create: (data) => api.post('/attendances', data),
   update: (id, data) => api.put(`/attendances/${id}`, data),
-  
-  checkIn: async (data) => {
-    try {
-      console.log('Sending check-in request:', data);
-      const response = await api.post('/attendances/check-in', data);
-      console.log('Check-in response:', response.data);
-      return response;
-    } catch (error) {
-      console.error('Check-in service error:', error.response?.data || error.message);
-      throw error;
-    }
-  },
-  
-  checkOut: async (data) => {
-    try {
-      console.log('Sending check-out request:', data);
-      const response = await api.post('/attendances/check-out', data);
-      console.log('Check-out response:', response.data);
-      return response;
-    } catch (error) {
-      console.error('Check-out service error details:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-      throw error;
-    }
-  },
+
+  checkIn: (data) => api.post('/attendances/check-in', data),
+
+  checkOut: (data) => api.post('/attendances/check-out', data),
   
   monthlyReport: (params) => api.get('/attendances/report/monthly', { params }),
   

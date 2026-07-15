@@ -2,17 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeftIcon, 
+import ToastAlert from '../../components/UI/ToastAlert';
+import {
+  ArrowLeftIcon,
   UserCircleIcon,
-  CheckCircleIcon,
-  XCircleIcon
 } from '@heroicons/react/24/outline';
 
 const ProfileEdit = () => {
   const { user, updateProfile, changePassword } = useAuth();
   const navigate = useNavigate();
-  
+
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -55,7 +54,7 @@ const ProfileEdit = () => {
     if (!profileData.name.trim()) newErrors.name = 'Name is required';
     if (!profileData.email.trim()) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(profileData.email)) newErrors.email = 'Email is invalid';
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -68,7 +67,7 @@ const ProfileEdit = () => {
     if (passwordData.new_password !== passwordData.confirm_password) {
       newErrors.confirm_password = 'Passwords do not match';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -135,7 +134,7 @@ const ProfileEdit = () => {
               <div className="w-px h-6 bg-gray-300"></div>
               <h1 className="text-2xl font-semibold text-gray-900">Account Settings</h1>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className={`px-3 py-1 rounded-full text-sm font-medium ${getRoleColor(user?.role)}`}>
                 {user?.role?.name || 'Employee'}
@@ -151,22 +150,7 @@ const ProfileEdit = () => {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Message Alert */}
-        {message.text && (
-          <div className={`mb-6 p-4 rounded-lg border-l-4 ${
-            message.type === 'success' 
-              ? 'bg-green-50 border-green-500 text-green-700' 
-              : 'bg-red-50 border-red-500 text-red-700'
-          }`}>
-            <div className="flex items-center space-x-2">
-              {message.type === 'success' ? (
-                <CheckCircleIcon className="h-5 w-5" />
-              ) : (
-                <XCircleIcon className="h-5 w-5" />
-              )}
-              <span className="font-medium">{message.text}</span>
-            </div>
-          </div>
-        )}
+        {message.text && <ToastAlert type={message.type} message={message.text} />}
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Tabs */}
@@ -294,7 +278,7 @@ const ProfileEdit = () => {
                   >
                     {loading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span className="inline-loader text-blue-600" />
                         <span>Saving...</span>
                       </>
                     ) : (
@@ -386,7 +370,7 @@ const ProfileEdit = () => {
                   >
                     {loading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span className="inline-loader text-blue-600" />
                         <span>Updating...</span>
                       </>
                     ) : (

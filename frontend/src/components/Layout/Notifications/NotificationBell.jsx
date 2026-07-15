@@ -1,32 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { BellIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../contexts/AuthContext';
 import { operationsService } from '../../../services/operationsService';
 
 const NotificationBell = () => {
   const { user } = useAuth();
+  const dropdownRef = useRef(null);
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const normalizeNotifications = records => records.map(item => ({
+    id: item.id,
+    title: item.type.replaceAll('.', ' '),
+    message: item.data?.message || item.data?.status || 'Your request has been updated',
+    time: item.created_at,
+    read: Boolean(item.read_at),
+  }));
+
   useEffect(() => {
     if (user) {
       operationsService.notifications().then(({ data }) => {
-        const records = (data.data || []).map(item => ({
-          id: item.id,
-          title: item.type.replaceAll('.', ' '),
-          message: item.data?.message || item.data?.status || 'Your request has been updated',
-          time: item.created_at,
-          read: Boolean(item.read_at),
-        }));
+        const records = normalizeNotifications(data.data || []);
         setNotifications(records);
         setUnreadCount(records.filter(item => !item.read).length);
       }).catch(() => {});
     }
   }, [user]);
 
-  const markAsRead = async (id) => {
+  useEffect(() => {
+    if (!showDropdown) return undefined;
+
+    const closeOnOutsideClick = event => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') setShowDropdown(false);
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showDropdown]);
+
+  const markAsRead = async id => {
     const notification = notifications.find(item => item.id === id);
+    if (!notification) return;
+
     if (!notification?.read && typeof id === 'string') {
       await operationsService.readNotification(id).catch(() => {});
     }
@@ -35,20 +62,25 @@ const NotificationBell = () => {
         notif.id === id ? { ...notif, read: true } : notif
       )
     );
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    if (!notification.read) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
   };
 
   const markAllAsRead = async () => {
-    await Promise.all(notifications.filter(item => !item.read && typeof item.id === 'string').map(item => operationsService.readNotification(item.id).catch(() => {})));
+    await operationsService.readAllNotifications().catch(() => {});
     setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
     setUnreadCount(0);
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
+        type="button"
+        onClick={() => setShowDropdown(value => !value)}
         className="relative p-2 text-gray-400 hover:text-gray-500 focus:outline-none"
+        aria-label="Open notifications"
+        aria-expanded={showDropdown}
       >
         <BellIcon className="h-6 w-6" />
         {unreadCount > 0 && (
@@ -59,16 +91,19 @@ const NotificationBell = () => {
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg overflow-hidden z-50">
-          <div className="p-3 border-b border-gray-200">
+        <div className="absolute right-0 z-50 mt-3 w-80 overflow-hidden border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] sm:w-96">
+          <div className="border-b border-slate-200 bg-slate-50/90 p-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Notifications</h3>
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-900">Notifications</h3>                
+              </div>
               {unreadCount > 0 && (
                 <button
+                  type="button"
                   onClick={markAllAsRead}
-                  className="text-sm text-primary-600 hover:text-primary-500"
+                  className="text-xs font-bold uppercase tracking-[0.12em] text-teal-700 hover:text-teal-500"
                 >
-                  Mark all as read
+                  Read all
                 </button>
               )}
             </div>
@@ -83,26 +118,26 @@ const NotificationBell = () => {
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                    !notification.read ? 'bg-blue-50' : ''
+                  className={`cursor-pointer border-b border-slate-100 p-4 transition hover:bg-teal-50/70 ${
+                    !notification.read ? 'bg-cyan-50/80' : 'bg-white'
                   }`}
                   onClick={() => markAsRead(notification.id)}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="capitalize text-sm font-semibold text-slate-900">
                         {notification.title}
                       </p>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="mt-1 text-sm leading-5 text-slate-600">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-400 mt-2">
-                        {new Date(notification.time).toLocaleTimeString()}
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                        {new Date(notification.time).toLocaleString()}
                       </p>
                     </div>
                     {!notification.read && (
                       <div className="ml-2">
-                        <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                        <div className="h-2.5 w-2.5 rounded-full bg-teal-500 shadow-[0_0_0_4px_rgba(20,184,166,0.14)]"></div>
                       </div>
                     )}
                   </div>
@@ -110,6 +145,13 @@ const NotificationBell = () => {
               ))
             )}
           </div>
+          <Link
+            to="/notifications"
+            onClick={() => setShowDropdown(false)}
+            className="block bg-slate-950 px-4 py-3 text-center text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-teal-700"
+          >
+            View all notifications
+          </Link>
         </div>
       )}
     </div>
