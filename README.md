@@ -35,9 +35,8 @@ The project uses a Laravel 12 REST API with Sanctum authentication and a React 1
 ```text
 HRM/
 ├── backend/             # Laravel API, migrations, seeders, services, and tests
-├── frontend/            # React application and Playwright tests
-├── README.md
-└── hrm_deepseek (3).sql # Legacy/reference SQL dump; not required for a fresh setup
+├── frontend/            # React application and Playwright tests 
+└── README.md
 ```
 
 ## Requirements
@@ -194,10 +193,7 @@ composer test                    # Run the backend test suite
 ```bash
 cd frontend
 npm run dev                      # Start Vite development server
-npm run lint                     # Run ESLint
 npm run build                    # Create a production build
-npm run preview                  # Preview the production build
-npm run test:e2e                 # Run Playwright end-to-end tests
 ```
 
 The Playwright configuration starts both the Laravel API on port `8000` and Vite on port `5173`. Seed the testable local database before running the end-to-end suite.
