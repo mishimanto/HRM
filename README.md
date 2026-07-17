@@ -54,7 +54,7 @@ Install the following before starting:
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/mishimanto/HRM.git
 cd HRM
 ```
 
@@ -65,12 +65,6 @@ cd backend
 composer install
 cp .env.example .env
 php artisan key:generate
-```
-
-The default environment is configured for SQLite. Ensure the database file exists:
-
-```bash
-touch database/database.sqlite
 ```
 
 Create the database tables and demo accounts:
@@ -143,7 +137,7 @@ The policy seeder creates the following starter configuration:
 
 These are configurable application defaults, not a substitute for a legal review of an organization's employment category, policies, and current Bangladesh labour requirements.
 
-## Using MySQL Instead of SQLite
+## Using MySQL
 
 Create a database, then replace the database section in `backend/.env`:
 
