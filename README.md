@@ -1,4 +1,4 @@
-# Professional HRM
+# HRM
 
 A full-stack Human Resource Management platform built for day-to-day HR operations, employee self-service, and Bangladesh-oriented workforce and payroll workflows.
 
