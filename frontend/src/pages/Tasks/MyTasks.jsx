@@ -59,16 +59,12 @@ const MyTasks = () => {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[10px] border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
+      <section className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
         <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase text-teal-200/80">Personal task desk</p>
-            <h1 className="mt-2 text-3xl font-black">My Tasks</h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium text-cyan-50/75">
-              Track your assigned work, update progress and keep task status current.
-            </p>
+            <h1 className="text-3xl font-black">My Tasks</h1>            
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="hidden items-center gap-3 border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-cyan-50/85 sm:flex">
@@ -85,10 +81,9 @@ const MyTasks = () => {
       <TaskFilters filters={filters} onFilterChange={setFilters} userRole={4} />
 
       <section className="overflow-hidden rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
-        <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-950">Assigned Tasks</h2>
-            <p className="mt-1 text-sm text-slate-500">Your current task queue</p>
+            <h2 className="text-lg font-bold text-slate-950">Assigned Tasks</h2>          
           </div>
           <span className="w-fit border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
             {tasks.length} tasks

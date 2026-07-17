@@ -62,15 +62,13 @@ Route::get('/dashboard/stats', [DashboardController::class, 'dashboardStats']);
         ->middleware('permission:department.view,department.manage');
     
     // Employee management
-    Route::apiResource('employees', EmployeeController::class)->except(['create', 'edit'])
-        ->middleware('permission:employee.view,employee.manage');
+    Route::get('/employees/my-profile', [EmployeeController::class, 'myProfile']);
     Route::get('/employees/dashboard-stats', [ReportController::class, 'dashboardStats'])
         ->middleware('permission:report.view');
     Route::get('/employees/for-bulk-attendance', [EmployeeController::class, 'employeesForBulkAttendance'])
         ->middleware('permission:attendance.manage');
-    
-    // ADD THIS ROUTE
-    Route::get('/employees/my-profile', [EmployeeController::class, 'myProfile']);
+    Route::apiResource('employees', EmployeeController::class)->except(['create', 'edit'])
+        ->middleware('permission:employee.view,employee.manage');
     
     // Attendance routes
     Route::get('/attendances', [AttendanceController::class, 'index'])->middleware('permission:attendance.view');

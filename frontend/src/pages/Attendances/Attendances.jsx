@@ -24,6 +24,14 @@ const statusStyles = {
 
 const today = () => new Date().toISOString().split('T')[0];
 
+const employeeFromUser = user => {
+  if (!user?.employee) return null;
+  return {
+    ...user.employee,
+    user,
+  };
+};
+
 export default function Attendances() {
   const { user } = useAuth();
   const [attendances, setAttendances] = useState([]);
@@ -34,32 +42,39 @@ export default function Attendances() {
   const [error, setError] = useState('');
 
   const isToday = selectedDate === today();
-  const isPrivilegedUser = useCallback(() => [1, 2, 3].includes(user?.role_id), [user?.role_id]);
+  const canViewAllAttendances = [1, 2, 3].includes(Number(user?.role_id));
   const isCurrentUser = useCallback(employee => employee.user_id === user?.id, [user?.id]);
-  const canPerformAction = useCallback(employee => isPrivilegedUser() || isCurrentUser(employee), [isPrivilegedUser, isCurrentUser]);
+  const canPerformAction = useCallback(employee => canViewAllAttendances || isCurrentUser(employee), [canViewAllAttendances, isCurrentUser]);
 
   const fetchAttendances = useCallback(async () => {
     setError('');
     try {
-      const response = await attendanceService.getAll({ date: selectedDate });
-      setAttendances(response.data.data || []);
+      const response = canViewAllAttendances
+        ? await attendanceService.getAll({ date: selectedDate })
+        : await attendanceService.myAttendance({ date: selectedDate });
+      setAttendances(canViewAllAttendances ? response.data.data || [] : response.data || []);
     } catch (err) {
       console.error('Error fetching attendances:', err);
       setError(err.response?.data?.message || 'Failed to fetch attendances');
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [canViewAllAttendances, selectedDate]);
 
   const fetchEmployees = useCallback(async () => {
     try {
+      if (!canViewAllAttendances) {
+        setEmployees([employeeFromUser(user)].filter(Boolean));
+        return;
+      }
+
       const response = await employeeService.getAll();
       setEmployees(response.data.data || []);
     } catch (err) {
       console.error('Error fetching employees:', err);
       setError(err.response?.data?.message || 'Failed to fetch employees');
     }
-  }, []);
+  }, [canViewAllAttendances, user]);
 
   useEffect(() => {
     fetchAttendances();
@@ -91,8 +106,8 @@ export default function Attendances() {
   };
 
   const filteredEmployees = useMemo(() => (
-    isPrivilegedUser() ? employees : employees.filter(employee => isCurrentUser(employee))
-  ), [employees, isPrivilegedUser, isCurrentUser]);
+    canViewAllAttendances ? employees : employees.filter(employee => isCurrentUser(employee))
+  ), [canViewAllAttendances, employees, isCurrentUser]);
 
   const attendanceByEmployee = useMemo(() => {
     const map = new Map();
@@ -128,7 +143,7 @@ export default function Attendances() {
             <h1 className="text-3xl font-black">Attendance</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {isPrivilegedUser() && (
+            {canViewAllAttendances && (
               <div className="hidden items-center gap-3 border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-cyan-50/85 sm:flex">
                 <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Online</span>
                 <span className="flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Offline</span>
@@ -154,7 +169,7 @@ export default function Attendances() {
         />
       )}
 
-      {isPrivilegedUser() && (
+      {canViewAllAttendances && (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="Online Now" value={summary.online} icon={ClockIcon} theme="teal" />
           <SummaryCard label="Present" value={summary.present} icon={CheckCircleIcon} theme="indigo" />
@@ -170,7 +185,7 @@ export default function Attendances() {
 
           </div>
           <span className="w-fit border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 shadow-sm">
-            {filteredEmployees.length} employees
+            {filteredEmployees.length} {filteredEmployees.length === 1 ? 'employee' : 'employees'}
           </span>
         </div>
 
@@ -178,13 +193,13 @@ export default function Attendances() {
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/90">
               <tr>
-                {isPrivilegedUser() && <HeadCell>Status</HeadCell>}
+                {canViewAllAttendances && <HeadCell align="center">Status</HeadCell>}
                 <HeadCell>Employee</HeadCell>
-                <HeadCell>Check In</HeadCell>
-                <HeadCell>Check Out</HeadCell>
-                <HeadCell>Total Hours</HeadCell>
-                <HeadCell>Mark</HeadCell>
-                <HeadCell>Actions</HeadCell>
+                <HeadCell align="center">Check In</HeadCell>
+                <HeadCell align="center">Check Out</HeadCell>
+                <HeadCell align="center">Total Hours</HeadCell>
+                <HeadCell align="center">Mark</HeadCell>
+                <HeadCell align="center">Actions</HeadCell>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white/80">
@@ -193,7 +208,7 @@ export default function Attendances() {
                 const online = Boolean(attendance?.check_in && !attendance?.check_out);
                 return (
                   <tr key={employee.id} className="transition hover:bg-teal-50/40">
-                    {isPrivilegedUser() && (
+                    {canViewAllAttendances && (
                       <td className="px-6 py-4 flex justify-center">
                         <span className={`block h-3 w-3 rounded-full ring-4 ${online ? 'bg-emerald-500 ring-emerald-100' : 'bg-slate-300 ring-slate-100'}`} title={online ? `Checked in at ${formatTime(attendance.check_in)}` : 'Offline'} />
                       </td>
@@ -237,7 +252,7 @@ export default function Attendances() {
           <div className="p-10 text-center">
             <UserGroupIcon className="mx-auto h-12 w-12 text-slate-300" />
             <h3 className="mt-3 text-sm font-bold text-slate-900">No employees found</h3>
-            <p className="mt-1 text-sm text-slate-500">{isPrivilegedUser() ? 'No employees are available for attendance tracking.' : 'No attendance profile is linked to your account.'}</p>
+            <p className="mt-1 text-sm text-slate-500">{canViewAllAttendances ? 'No employees are available for attendance tracking.' : 'No attendance profile is linked to your account.'}</p>
           </div>
         )}
       </section>
@@ -245,8 +260,8 @@ export default function Attendances() {
   );
 }
 
-function HeadCell({ children }) {
-  return <th className="px-6 py-4 text-center text-xs font-bold uppercase text-slate-500 whitespace-nowrap">{children}</th>;
+function HeadCell({ children, align }) {
+  return <th className={`px-6 py-4 text-xs font-bold uppercase text-slate-500 whitespace-nowrap ${align === 'center' ? 'text-center' : 'text-left'}`}>{children}</th>;
 }
 
 function DataCell({ primary, secondary }) {

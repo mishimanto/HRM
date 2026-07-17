@@ -208,7 +208,7 @@ export default function Leaves() {
         <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="mt-2 text-3xl font-black">Leaves</h1>
+            <h1 className="text-3xl font-black">Leaves</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <select

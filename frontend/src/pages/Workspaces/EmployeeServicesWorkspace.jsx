@@ -119,24 +119,7 @@ export default function EmployeeServicesWorkspace() {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <section className="relative overflow-hidden border border-slate-900/10 bg-[linear-gradient(135deg,#0f2137_0%,#123352_55%,#0f766e_100%)] p-6 text-white shadow-[0_28px_60px_rgba(15,33,55,0.26),0_8px_0_rgba(15,33,55,0.10)] sm:p-7">
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-amber-300 to-rose-400" />
-          <div className="absolute bottom-0 right-0 h-28 w-80 -skew-x-12 bg-white/10" />
-          <div className="relative z-10">
-            <h1 className="text-3xl font-black">Employee Services</h1>
-          </div>
-          <div className="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-teal-400 via-amber-300 to-rose-400" />
-        </section>
-        <div className="flex min-h-80 items-center justify-center rounded-[8px] border border-white/70 bg-white/90 shadow-[0_18px_44px_rgba(15,23,42,0.09)] backdrop-blur">
-          <div className="text-center">
-            <div className="professional-loader mx-auto" />
-            <p className="mt-3 text-sm font-medium text-slate-500">Loading employee services...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <PageLoadingBlock label="Loading employee services..." />;
   }
 
   return (
@@ -309,6 +292,17 @@ function ActionButton({ children, onClick }) {
 
 function Alert({ type = 'error', message }) {
   return <ToastAlert type={type} message={message} />;
+}
+
+function PageLoadingBlock({ label }) {
+  return (
+    <div className="flex min-h-96 items-center justify-center">
+      <div className="text-center">
+        <div className="professional-loader mx-auto" />
+        <p className="mt-3 text-sm font-medium text-slate-500">{label}</p>
+      </div>
+    </div>
+  );
 }
 
 function Field({ name, label, type = 'text', required = true }) {

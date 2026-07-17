@@ -5,9 +5,7 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
   EnvelopeIcon,
-  ExclamationTriangleIcon,
-  EyeIcon,
-  EyeSlashIcon,
+  KeyIcon,
   LockClosedIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,13 +14,18 @@ import { useSiteSettings } from '../../contexts/SiteSettingsContext';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
+
+  const useAdminCredentials = () => {
+    setEmail('admin@gmail.com');
+    setPassword('password');
+    setError('');
+  };
 
   const handleSubmit = async event => {
     event.preventDefault();
@@ -77,7 +80,7 @@ export default function Login() {
                 )}
               </div>
               <h2 className="text-2xl text-center font-black text-slate-100">Welcome back</h2>
-            </div>
+            </div>            
 
             <FloatingField
               icon={EnvelopeIcon}
@@ -93,22 +96,17 @@ export default function Login() {
               icon={LockClosedIcon}
               label="Password"
               placeholder="Enter your password"
-              type={showPassword ? 'text' : 'password'}
+              type="password"
               value={password}
               onChange={setPassword}
               autoComplete="current-password"
-              rightAction={(
-                <button type="button" onClick={() => setShowPassword(value => !value)} className="flex h-9 w-9 items-center justify-center rounded-[7px] text-slate-500">
-                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                </button>
-              )}
             />
 
             <button
               type="submit"
               disabled={loading}
               aria-busy={loading}
-              className="group relative inline-flex py-4 w-full items-center justify-center gap-2 overflow-hidden bg-teal-600 px-5 text-sm font-black text-white shadow-[0_14px_26px_rgba(15,118,110,0.25)] hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-teal-700 disabled:shadow-[0_10px_22px_rgba(15,118,110,0.18)]"
+              className="group relative inline-flex py-4 w-full items-center justify-center gap-2 overflow-hidden bg-teal-600 px-5 text-md font-black text-white shadow-[0_14px_26px_rgba(15,118,110,0.25)] hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-teal-700 disabled:shadow-[0_10px_22px_rgba(15,118,110,0.18)]"
             >
               <span className="absolute inset-x-0 top-0 h-px bg-white/45" />
               {loading ? (
@@ -123,6 +121,21 @@ export default function Login() {
                 </>
               )}
             </button>
+            <div className="flex items-center justify-between gap-4 bg-white/[0.08] px-4 py-2 text-white shadow-sm">
+              <div className="flex min-w-0 items-center gap-3">
+                <KeyIcon className="h-5 w-5 shrink-0 text-teal-300" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold uppercase text-cyan-100/60">Admin account</p>                  
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={useAdminCredentials}
+                className="shrink-0 border border-teal-300/60 bg-teal-400 px-3 py-2 text-xs font-black text-[#0f2137] transition hover:bg-teal-300"
+              >
+                Use credentials
+              </button>              
+            </div>
           </form>
         </section>
       </div>
@@ -139,7 +152,7 @@ function Feature({ label }) {
   );
 }
 
-function FloatingField({ icon: Icon, label, placeholder, value, onChange, rightAction, ...props }) {
+function FloatingField({ icon: Icon, label, placeholder, value, onChange, ...props }) {
   const [focused, setFocused] = useState(false);
   const active = focused || Boolean(value);
 
@@ -157,10 +170,9 @@ function FloatingField({ icon: Icon, label, placeholder, value, onChange, rightA
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={active ? placeholder : ''}
-          className={`min-w-0 flex-1 bg-transparent pl-2 text-[15px] font-bold text-slate-900 outline-none placeholder:text-slate-400 ${rightAction ? 'pr-1' : 'pr-1'}`}
+          className="min-w-0 flex-1 bg-transparent pl-2 pr-1 text-[15px] font-bold text-slate-900 outline-none placeholder:text-slate-400"
           {...props}
         />
-        {rightAction}
       </div>
     </fieldset>
   );
